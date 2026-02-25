@@ -114,6 +114,23 @@ class SummaryGenerator:
         self._db = db
         self._data_dir = data_dir
 
+    def _time_context(self, now: datetime, subs_or_frames: list) -> str:
+        """Build time context string from actual data timestamps."""
+        if not subs_or_frames:
+            return f"現在時刻: {now.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        first = subs_or_frames[0]
+        last = subs_or_frames[-1]
+        t_first = first.timestamp if hasattr(first, "timestamp") else first.start_time
+        t_last = last.timestamp if hasattr(last, "timestamp") else last.start_time
+        actual_minutes = (t_last - t_first).total_seconds() / 60
+        return (
+            f"現在時刻: {now.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"データ範囲: {t_first.strftime('%H:%M:%S')} ～ {t_last.strftime('%H:%M:%S')} "
+            f"(実際の観測時間: 約{actual_minutes:.0f}分, {len(subs_or_frames)}件)\n"
+        )
+
+    _GROUND_RULE = "重要: 実際のデータ範囲・件数に基づいてのみ記述してください。スケール名から時間を推測して水増ししないこと。\n\n"
+
     def generate_10m(self, now: datetime) -> Summary | None:
         """10-minute summary from recent frame descriptions."""
         since = now - timedelta(minutes=10)
@@ -121,11 +138,14 @@ class SummaryGenerator:
         if not frames:
             return None
 
+        ctx = self._time_context(now, frames)
         descriptions = self._format_frame_list(frames)
         prompt = (
-            f"以下は過去10分間のウェブカメラ観察記録です。\n\n"
+            f"{self._GROUND_RULE}"
+            f"{ctx}\n"
+            f"以下はウェブカメラ+画面キャプチャの観察記録です。\n\n"
             f"{descriptions}\n\n"
-            f"この10分間の活動を2-3文で日本語で要約してください。要約だけを出力してください。"
+            f"この期間の活動を2-3文で日本語で要約してください。要約だけを出力してください。"
         )
         content = _call_claude(prompt)
         if not content:
@@ -138,45 +158,39 @@ class SummaryGenerator:
         return summary
 
     def generate_30m(self, now: datetime) -> Summary | None:
-        """30-minute summary from 10m summaries."""
         since = now - timedelta(minutes=30)
         subs = self._db.get_summaries_since(since, "10m")
         if not subs:
             return None
-        return self._aggregate(now, "30m", subs, "30分間")
+        return self._aggregate(now, "30m", subs)
 
     def generate_1h(self, now: datetime) -> Summary | None:
-        """1-hour summary from 30m summaries."""
         since = now - timedelta(hours=1)
         subs = self._db.get_summaries_since(since, "30m")
         if not subs:
             return None
-        return self._aggregate(now, "1h", subs, "1時間")
+        return self._aggregate(now, "1h", subs)
 
     def generate_6h(self, now: datetime) -> Summary | None:
-        """6-hour summary from 1h summaries."""
         since = now - timedelta(hours=6)
         subs = self._db.get_summaries_since(since, "1h")
         if not subs:
             return None
-        return self._aggregate(now, "6h", subs, "6時間")
+        return self._aggregate(now, "6h", subs)
 
     def generate_12h(self, now: datetime) -> Summary | None:
-        """12-hour summary from 6h summaries."""
         since = now - timedelta(hours=12)
         subs = self._db.get_summaries_since(since, "6h")
         if not subs:
             return None
-        return self._aggregate(now, "12h", subs, "12時間")
+        return self._aggregate(now, "12h", subs)
 
     def generate_24h(self, now: datetime) -> Summary | None:
-        """24-hour summary from 12h summaries."""
         since = now - timedelta(hours=24)
         subs = self._db.get_summaries_since(since, "12h")
         if not subs:
             return None
 
-        # For daily summary, also include a few keyframes for richer analysis
         frames = self._db.get_frames_since(since)
         keyframes = self._select_keyframes(frames, max_frames=10)
         keyframe_section = ""
@@ -188,13 +202,16 @@ class SummaryGenerator:
                     + "\n".join(f"- {p}" for p in paths)
                 )
 
+        ctx = self._time_context(now, subs)
         sub_text = self._format_summaries(subs)
         prompt = (
-            f"以下は過去24時間の活動サマリーです。\n\n"
+            f"{self._GROUND_RULE}"
+            f"{ctx}\n"
+            f"以下はこの期間の活動サマリーです。\n\n"
             f"{sub_text}"
             f"{keyframe_section}\n\n"
-            f"1日の生活パターンを分析し、以下を日本語で出力してください:\n"
-            f"1. 1日の流れの自然な要約\n"
+            f"上記のデータ範囲に基づいて、生活パターンを分析し以下を日本語で出力してください:\n"
+            f"1. 実際の観測時間内で何が起きたかの自然な要約\n"
             f"2. 活動パターン（集中作業の時間帯、休憩、離席など）\n"
             f"3. 気になる点や改善提案があれば\n"
         )
@@ -210,13 +227,16 @@ class SummaryGenerator:
         return summary
 
     def _aggregate(
-        self, now: datetime, scale: str, subs: list[Summary], period_label: str
+        self, now: datetime, scale: str, subs: list[Summary],
     ) -> Summary | None:
+        ctx = self._time_context(now, subs)
         sub_text = self._format_summaries(subs)
         prompt = (
-            f"以下は過去{period_label}の活動記録です。\n\n"
+            f"{self._GROUND_RULE}"
+            f"{ctx}\n"
+            f"以下はこの期間の活動記録です。\n\n"
             f"{sub_text}\n\n"
-            f"この{period_label}の活動パターンを2-3文で日本語で要約してください。"
+            f"上記のデータ範囲に基づいて、活動パターンを2-3文で日本語で要約してください。"
             f"要約だけを出力してください。"
         )
         content = _call_claude(prompt)
