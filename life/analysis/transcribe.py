@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 class Transcriber:
     """Speech-to-text using faster-whisper (CTranslate2)."""
 
-    def __init__(self, model_size: str = "tiny", language: str = "ja"):
+    def __init__(self, model_size: str = "medium", language: str = "ja"):
         self._model_size = model_size
         self._language = language
         self._model = None

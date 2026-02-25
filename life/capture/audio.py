@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import grp
 import logging
+import os
+import shlex
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -26,17 +29,21 @@ class AudioCapture:
         filepath = date_dir / filename
 
         try:
+            cmd = [
+                "arecord",
+                "-D", self._device,
+                "-f", "S16_LE",
+                "-r", str(self._sample_rate),
+                "-c", "1",
+                "-d", str(duration_sec),
+                "-q",
+                str(filepath),
+            ]
+            # If current process is not in audio group, use sg to acquire it
+            if not self._in_audio_group():
+                cmd = ["sg", "audio", "-c", " ".join(shlex.quote(c) for c in cmd)]
             result = subprocess.run(
-                [
-                    "arecord",
-                    "-D", self._device,
-                    "-f", "S16_LE",
-                    "-r", str(self._sample_rate),
-                    "-c", "1",
-                    "-d", str(duration_sec),
-                    "-q",
-                    str(filepath),
-                ],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=duration_sec + 10,
@@ -59,6 +66,14 @@ class AudioCapture:
         except Exception:
             log.exception("Audio capture error")
             return None
+
+    @staticmethod
+    def _in_audio_group() -> bool:
+        try:
+            audio_gid = grp.getgrnam("audio").gr_gid
+            return audio_gid in os.getgroups()
+        except KeyError:
+            return False
 
     def get_disk_usage(self) -> int:
         audio_dir = self._data_dir / "audio"
