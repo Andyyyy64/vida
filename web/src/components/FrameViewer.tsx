@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Props {
   framePath: string;
@@ -25,7 +25,14 @@ export function FrameViewer({ framePath, screenPath, screenExtraPaths }: Props) 
   }
 
   const [activeIdx, setActiveIdx] = useState(0);
-  const current = tabs[activeIdx] || tabs[0];
+
+  // Reset tab when frame changes
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [framePath]);
+
+  const safeIdx = activeIdx < tabs.length ? activeIdx : 0;
+  const current = tabs[safeIdx];
 
   return (
     <div className="frame-viewer">
@@ -34,7 +41,7 @@ export function FrameViewer({ framePath, screenPath, screenExtraPaths }: Props) 
           {tabs.map((tab, i) => (
             <button
               key={i}
-              className={`frame-tab ${i === activeIdx ? 'active' : ''}`}
+              className={`frame-tab ${i === safeIdx ? 'active' : ''}`}
               onClick={() => setActiveIdx(i)}
             >
               {tab.label}
@@ -44,10 +51,10 @@ export function FrameViewer({ framePath, screenPath, screenExtraPaths }: Props) 
       )}
       <div className="frame-image-container">
         <img
+          key={current.path}
           src={`/media/${current.path}`}
           alt={current.label}
           className="frame-image"
-          loading="lazy"
         />
       </div>
     </div>

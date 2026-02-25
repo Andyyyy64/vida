@@ -461,11 +461,14 @@ pre {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 120px;
 }
 
 .frame-image {
   width: 100%;
   height: auto;
+  max-height: 400px;
+  object-fit: contain;
   display: block;
 }
 
