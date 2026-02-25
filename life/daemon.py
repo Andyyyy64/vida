@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import signal
 import threading
 import time
@@ -112,6 +113,11 @@ class Daemon:
         # Save webcam frame + screen capture
         rel_path = self._frame_store.save(raw_frame, now)
         screen_path = self._screen.capture(now) or ""
+
+        # Write latest frame for live web feed
+        live_dir = self._config.data_dir / "live"
+        live_dir.mkdir(exist_ok=True)
+        shutil.copy2(str(self._config.data_dir / rel_path), str(live_dir / "latest.jpg"))
 
         # Local lightweight analysis
         brightness = self._scene.get_brightness(raw_frame)
