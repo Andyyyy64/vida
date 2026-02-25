@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -25,11 +26,23 @@ def _load_context(data_dir: Path) -> str:
 class FrameAnalyzer:
     """Analyzes webcam frames + screen captures via an LLM provider."""
 
-    def __init__(self, provider: LLMProvider, data_dir: Path):
+    def __init__(self, provider: LLMProvider, data_dir: Path, db: Database):
         self._provider = provider
         self._data_dir = data_dir
+        self._db = db
 
-    def analyze(self, frame: Frame) -> str:
+    def analyze(
+        self, frame: Frame, extra_screen_paths: list[str] | None = None,
+    ) -> tuple[str, str]:
+        """Analyze frame and return (description, activity).
+
+        Args:
+            frame: Frame to analyze (with path, screen_path, etc.)
+            extra_screen_paths: Additional screen capture paths (burst captures)
+
+        Returns:
+            Tuple of (description, activity_category)
+        """
         cam_path = (self._data_dir / frame.path).resolve() if frame.path else None
         screen_path = (self._data_dir / frame.screen_path).resolve() if frame.screen_path else None
 
@@ -38,7 +51,15 @@ class FrameAnalyzer:
 
         if not has_cam and not has_screen:
             log.warning("No images to analyze")
-            return ""
+            return "", ""
+
+        # Resolve extra screen paths
+        extra_screens: list[Path] = []
+        if extra_screen_paths:
+            for sp in extra_screen_paths:
+                p = (self._data_dir / sp).resolve()
+                if p.exists():
+                    extra_screens.append(p)
 
         context = _load_context(self._data_dir)
         parts: list[str] = []
@@ -52,25 +73,57 @@ class FrameAnalyzer:
 
         # Build image list and prompt
         image_paths: list[Path] = []
-        if has_cam and has_screen:
-            image_paths = [cam_path, screen_path]
+        img_idx = 1
+
+        if has_cam:
+            image_paths.append(cam_path)
+            cam_label = f"画像{img_idx}: ウェブカメラ映像"
+            img_idx += 1
+        else:
+            cam_label = ""
+
+        if has_screen or extra_screens:
+            screen_labels: list[str] = []
+            if has_screen:
+                image_paths.append(screen_path)
+                screen_labels.append(f"画像{img_idx}: PC画面キャプチャ（0秒時点）")
+                img_idx += 1
+            for i, esp in enumerate(extra_screens):
+                image_paths.append(esp)
+                offset = (i + 1) * 10
+                screen_labels.append(f"画像{img_idx}: PC画面キャプチャ（{offset}秒時点）")
+                img_idx += 1
+            screen_desc = "\n".join(screen_labels)
+        else:
+            screen_desc = ""
+
+        total_images = len(image_paths)
+        if total_images == 0:
+            return "", ""
+
+        parts.append(f"以下の{total_images}つの画像を分析してください。")
+        if cam_label:
+            parts.append(cam_label)
+        if screen_desc:
+            parts.append(screen_desc)
+
+        if extra_screens:
             parts.append(
-                "以下の2つの画像を分析してください。\n"
-                "画像1: ウェブカメラ映像\n"
-                "画像2: PC画面キャプチャ\n"
+                "PC画面キャプチャが複数枚あります。時系列で画面の変化を読み取り、"
+                "この期間中に何をしていたか把握してください。"
+            )
+
+        if has_cam and (has_screen or extra_screens):
+            parts.append(
                 "ウェブカメラからは人物の物理的な状態を、画面キャプチャからはPC上での活動内容を読み取り、"
                 "この人が今何をしているか1-2文で日本語で説明してください。"
             )
         elif has_cam:
-            image_paths = [cam_path]
             parts.append(
-                "この画像はウェブカメラの映像です。"
                 "写っているものを1-2文で簡潔に日本語で説明してください。"
             )
         else:
-            image_paths = [screen_path]
             parts.append(
-                "この画像はPC画面のキャプチャです。"
                 "表示されている内容を1-2文で簡潔に日本語で説明してください。"
             )
 
@@ -81,11 +134,68 @@ class FrameAnalyzer:
                 "映像と音声の両方を踏まえて説明してください。"
             )
 
-        parts.append("説明だけを出力してください。")
+        # Activity classification with existing categories for consistency
+        recent_activities = self._db.get_recent_activities(limit=15)
+        if recent_activities:
+            activities_str = "、".join(recent_activities)
+            parts.append(
+                f"\n既存のアクティビティカテゴリ: [{activities_str}]\n"
+                "可能な限り既存カテゴリを再利用し、表記揺れを避けてください。"
+                "該当するものがなければ新しいカテゴリを作成してください。"
+            )
+
+        parts.append(
+            '\n以下のJSON形式で出力してください（JSON以外は出力しないこと）:\n'
+            '{"activity": "カテゴリ名", "description": "説明文"}\n'
+            "activityには短いカテゴリ名（例: プログラミング、YouTube視聴、ブラウジング、"
+            "チャット、ゲーム、休憩、離席など）を入れてください。"
+        )
 
         prompt = "\n".join(parts)
-        result = self._provider.analyze_images(prompt, image_paths)
-        return result or ""
+        raw = self._provider.analyze_images(prompt, image_paths)
+        return self._parse_analysis(raw or "")
+
+    @staticmethod
+    def _parse_analysis(raw: str) -> tuple[str, str]:
+        """Parse JSON analysis response. Returns (description, activity)."""
+        raw = raw.strip()
+        if not raw:
+            return "", ""
+
+        # Try to extract JSON from the response
+        # Handle cases where LLM wraps JSON in markdown code blocks
+        if "```" in raw:
+            lines = raw.split("\n")
+            json_lines = []
+            in_block = False
+            for line in lines:
+                if line.strip().startswith("```"):
+                    in_block = not in_block
+                    continue
+                if in_block:
+                    json_lines.append(line)
+            if json_lines:
+                raw = "\n".join(json_lines).strip()
+
+        try:
+            data = json.loads(raw)
+            return data.get("description", ""), data.get("activity", "")
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: try to find JSON object in the text
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        if start >= 0 and end > start:
+            try:
+                data = json.loads(raw[start:end])
+                return data.get("description", ""), data.get("activity", "")
+            except json.JSONDecodeError:
+                pass
+
+        # Final fallback: treat entire text as description
+        log.warning("Could not parse JSON from analysis, using raw text")
+        return raw, ""
 
 
 class SummaryGenerator:

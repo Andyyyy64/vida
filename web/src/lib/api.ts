@@ -1,4 +1,4 @@
-import type { Frame, Event, Summary, DayStats } from './types';
+import type { Frame, Event, Summary, DayStats, ActivityStats } from './types';
 
 const BASE = '/api';
 
@@ -24,5 +24,6 @@ export const api = {
   stats: {
     get: (date: string) => fetchJson<DayStats>(`/stats?date=${date}`),
     dates: () => fetchJson<string[]>('/stats/dates'),
+    activities: (date: string) => fetchJson<ActivityStats>(`/stats/activities?date=${date}`),
   },
 };

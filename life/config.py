@@ -15,6 +15,7 @@ class CaptureConfig:
     width: int = 640
     height: int = 480
     jpeg_quality: int = 85
+    screen_burst_count: int = 3
 
 
 @dataclass

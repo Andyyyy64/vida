@@ -221,17 +221,18 @@ def look(ctx):
         claude_model=config.llm.claude_model,
         gemini_model=config.llm.gemini_model,
     )
-    analyzer = FrameAnalyzer(provider, config.data_dir)
-    description = analyzer.analyze(frame)
+    db = Database(config.db_path)
+    analyzer = FrameAnalyzer(provider, config.data_dir, db)
+    description, activity = analyzer.analyze(frame)
 
     if description:
-        console.print(Panel(description, title="Claude Code says", border_style="blue"))
-        db = Database(config.db_path)
+        label = f"[{activity}] " if activity else ""
+        console.print(Panel(f"{label}{description}", title="Claude Code says", border_style="blue"))
         frame_id = db.insert_frame(frame)
-        db.update_frame_description(frame_id, description)
-        db.close()
+        db.update_frame_analysis(frame_id, description, activity)
     else:
         console.print("[yellow]Claude Code could not analyze the frame[/yellow]")
+    db.close()
 
 
 @cli.command()

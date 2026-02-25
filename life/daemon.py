@@ -44,6 +44,8 @@ class Daemon:
         self._last_scene: SceneType | None = None
         self._pending_audio: str | None = None  # audio from previous interval
         self._audio_thread: threading.Thread | None = None
+        self._burst_screen_paths: list[str] = []  # buffered burst screen captures
+        self._burst_lock = threading.Lock()
 
         # Create LLM provider from config
         provider = create_provider(
@@ -56,7 +58,7 @@ class Daemon:
         self._transcriber = Transcriber(
             provider, context_path=config.data_dir / "context.md",
         )
-        self._frame_analyzer = FrameAnalyzer(provider, config.data_dir)
+        self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db)
         self._summary_gen = SummaryGenerator(provider, self._db, config.data_dir)
 
         # Track last summary time per scale
@@ -80,8 +82,19 @@ class Daemon:
             while self._running:
                 self._tick()
                 # Between ticks: continuously feed live stream (~10fps)
+                # Also capture burst screenshots at 10s intervals
                 end_time = time.time() + self._config.capture.interval_sec
+                next_burst_time = time.time() + 10  # first burst at +10s
+                burst_count = self._config.capture.screen_burst_count
+                with self._burst_lock:
+                    self._burst_screen_paths = []
+                burst_captured = 0
                 while self._running and time.time() < end_time:
+                    # Burst screen capture at 10s intervals
+                    if burst_captured < burst_count - 1 and time.time() >= next_burst_time:
+                        self._capture_burst_screen()
+                        burst_captured += 1
+                        next_burst_time = time.time() + 10
                     raw = self._camera.capture()
                     if raw is not None:
                         _, jpeg = cv2.imencode(
@@ -123,6 +136,17 @@ class Daemon:
                 log.info("Transcribed: %s", transcription[:80])
         return audio_path, transcription
 
+    def _capture_burst_screen(self):
+        """Capture a burst screenshot in background thread."""
+        def _do_capture():
+            path = self._screen.capture(datetime.now())
+            if path:
+                with self._burst_lock:
+                    self._burst_screen_paths.append(path)
+                log.debug("Burst screen captured: %s", path)
+        t = threading.Thread(target=_do_capture, daemon=True)
+        t.start()
+
     def _tick(self):
         raw_frame = self._camera.capture()
         if raw_frame is None:
@@ -155,6 +179,11 @@ class Daemon:
         scene_type = self._scene.classify(brightness)
         motion_score = self._motion.analyze(raw_frame)
 
+        # Collect burst screen paths from previous interval
+        with self._burst_lock:
+            burst_paths = list(self._burst_screen_paths)
+            self._burst_screen_paths = []
+
         # Record frame in DB
         frame = Frame(
             timestamp=now,
@@ -165,6 +194,7 @@ class Daemon:
             brightness=brightness,
             motion_score=motion_score,
             scene_type=scene_type,
+            screen_extra_paths=",".join(burst_paths) if burst_paths else "",
         )
         frame_id = self._db.insert_frame(frame)
         frame.id = frame_id
@@ -194,11 +224,11 @@ class Daemon:
             "yes" if audio_path else "no",
         )
 
-        # LLM frame analysis (every frame, with transcription context)
-        description = self._frame_analyzer.analyze(frame)
-        if description:
-            self._db.update_frame_description(frame_id, description)
-            log.info("Analysis: %s", description[:80])
+        # LLM frame analysis (every frame, with transcription context + burst screens)
+        description, activity = self._frame_analyzer.analyze(frame, burst_paths or None)
+        if description or activity:
+            self._db.update_frame_analysis(frame_id, description, activity)
+            log.info("Analysis: [%s] %s", activity, description[:80])
 
         # Multi-scale summaries
         self._check_summaries(now)

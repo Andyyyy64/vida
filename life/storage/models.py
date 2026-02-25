@@ -34,6 +34,8 @@ class Frame:
     motion_score: float = 0.0
     scene_type: SceneType = SceneType.NORMAL
     claude_description: str = ""
+    activity: str = ""
+    screen_extra_paths: str = ""  # comma-separated extra screen paths
 
 
 @dataclass

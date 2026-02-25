@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS frames (
     brightness REAL DEFAULT 0,
     motion_score REAL DEFAULT 0,
     scene_type TEXT DEFAULT 'normal',
-    claude_description TEXT DEFAULT ''
+    claude_description TEXT DEFAULT '',
+    activity TEXT DEFAULT '',
+    screen_extra_paths TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -83,6 +85,14 @@ class Database:
         if "transcription" not in cols:
             self._conn.execute("ALTER TABLE frames ADD COLUMN transcription TEXT DEFAULT ''")
             self._conn.commit()
+        if "activity" not in cols:
+            self._conn.execute("ALTER TABLE frames ADD COLUMN activity TEXT DEFAULT ''")
+            self._conn.commit()
+        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_frames_activity ON frames(activity)")
+        self._conn.commit()
+        if "screen_extra_paths" not in cols:
+            self._conn.execute("ALTER TABLE frames ADD COLUMN screen_extra_paths TEXT DEFAULT ''")
+            self._conn.commit()
         # Ensure summaries table exists
         self._conn.executescript(MIGRATE_SUMMARIES)
 
@@ -94,8 +104,8 @@ class Database:
     def insert_frame(self, frame: Frame) -> int:
         cur = self._conn.execute(
             """INSERT INTO frames (timestamp, path, screen_path, audio_path, transcription,
-               brightness, motion_score, scene_type, claude_description)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               brightness, motion_score, scene_type, claude_description, activity, screen_extra_paths)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 frame.timestamp.isoformat(),
                 frame.path,
@@ -106,6 +116,8 @@ class Database:
                 frame.motion_score,
                 frame.scene_type.value,
                 frame.claude_description,
+                frame.activity,
+                frame.screen_extra_paths,
             ),
         )
         self._conn.commit()
@@ -117,6 +129,35 @@ class Database:
             (description, frame_id),
         )
         self._conn.commit()
+
+    def update_frame_analysis(self, frame_id: int, description: str, activity: str):
+        self._conn.execute(
+            "UPDATE frames SET claude_description=?, activity=? WHERE id=?",
+            (description, activity, frame_id),
+        )
+        self._conn.commit()
+
+    def get_recent_activities(self, limit: int = 15) -> list[str]:
+        """Get the most common recent activity categories."""
+        rows = self._conn.execute(
+            "SELECT activity, COUNT(*) as cnt FROM frames "
+            "WHERE activity != '' GROUP BY activity ORDER BY cnt DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [r["activity"] for r in rows]
+
+    def get_activity_stats(self, d: date) -> list[dict]:
+        """Get activity statistics for a given date."""
+        start = datetime(d.year, d.month, d.day).isoformat()
+        end = datetime(d.year, d.month, d.day, 23, 59, 59).isoformat()
+        rows = self._conn.execute(
+            "SELECT activity, COUNT(*) as frame_count, "
+            "CAST(strftime('%%H', timestamp) AS INTEGER) as hour "
+            "FROM frames WHERE timestamp BETWEEN ? AND ? AND activity != '' "
+            "GROUP BY activity, hour ORDER BY activity, hour",
+            (start, end),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def get_frames_for_date(self, d: date) -> list[Frame]:
         start = datetime(d.year, d.month, d.day).isoformat()
@@ -261,6 +302,8 @@ class Database:
             motion_score=row["motion_score"],
             scene_type=SceneType(row["scene_type"]),
             claude_description=row["claude_description"] or "",
+            activity=row["activity"] or "",
+            screen_extra_paths=row["screen_extra_paths"] or "",
         )
 
     @staticmethod

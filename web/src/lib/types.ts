@@ -9,6 +9,7 @@ export interface Frame {
   motion_score: number;
   scene_type: 'dark' | 'normal' | 'bright';
   claude_description: string;
+  activity: string;
 }
 
 export interface Event {
@@ -35,4 +36,22 @@ export interface DayStats {
   avgMotion: number;
   avgBrightness: number;
   activity: number[];
+}
+
+export interface ActivityStat {
+  activity: string;
+  frameCount: number;
+  durationSec: number;
+}
+
+export interface HourlyActivityStat {
+  hour: number;
+  activity: string;
+  frameCount: number;
+  durationSec: number;
+}
+
+export interface ActivityStats {
+  activities: ActivityStat[];
+  hourly: HourlyActivityStat[];
 }
