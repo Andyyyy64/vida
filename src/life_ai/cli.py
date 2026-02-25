@@ -114,10 +114,12 @@ def status(ctx):
 
     from life_ai.capture.frame_store import FrameStore
     from life_ai.capture.screen import ScreenCapture
+    from life_ai.capture.audio import AudioCapture
     store = FrameStore(config.data_dir)
     screen_store = ScreenCapture(config.data_dir)
+    audio_store = AudioCapture(config.data_dir)
     frames_today = store.get_frame_count_today()
-    disk = store.get_disk_usage() + screen_store.get_disk_usage()
+    disk = store.get_disk_usage() + screen_store.get_disk_usage() + audio_store.get_disk_usage()
     disk_mb = disk / (1024 * 1024)
 
     from life_ai.storage.database import Database
@@ -256,10 +258,12 @@ def recent(ctx, count: int):
 
     for f in recent_frames:
         desc = f.claude_description or "[dim]pending[/dim]"
+        if f.transcription:
+            desc += f"\n[dim]🎤 {f.transcription[:60]}[/dim]"
         table.add_row(
             f.timestamp.strftime("%H:%M:%S"),
             f"{f.motion_score:.3f}",
-            desc[:100],
+            desc,
         )
     console.print(table)
 

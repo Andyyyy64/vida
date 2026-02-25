@@ -3,11 +3,15 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import threading
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from life_ai.analysis.motion import MotionDetector
 from life_ai.analysis.scene import SceneAnalyzer
+from life_ai.analysis.transcribe import Transcriber
+from life_ai.capture.audio import AudioCapture
 from life_ai.capture.camera import Camera
 from life_ai.capture.frame_store import FrameStore
 from life_ai.capture.screen import ScreenCapture
@@ -26,6 +30,8 @@ class Daemon:
         self._camera = Camera(config.capture)
         self._frame_store = FrameStore(config.data_dir, config.capture.jpeg_quality)
         self._screen = ScreenCapture(config.data_dir)
+        self._audio = AudioCapture(config.data_dir)
+        self._transcriber = Transcriber()
         self._db = Database(config.db_path)
         self._motion = MotionDetector(config.analysis.motion_threshold)
         self._scene = SceneAnalyzer(config.analysis.brightness_dark, config.analysis.brightness_bright)
@@ -33,6 +39,8 @@ class Daemon:
         self._summary_gen = SummaryGenerator(self._db, config.data_dir)
         self._frame_count = 0
         self._last_scene: SceneType | None = None
+        self._pending_audio: str | None = None  # audio from previous interval
+        self._audio_thread: threading.Thread | None = None
 
         # Track last summary time per scale
         self._last_summary: dict[str, datetime] = {}
@@ -62,6 +70,31 @@ class Daemon:
             self._cleanup_pid()
             log.info("Daemon stopped")
 
+    def _start_audio_recording(self, now: datetime):
+        """Start recording audio in a background thread for the current interval."""
+        def _record():
+            self._pending_audio = self._audio.capture(
+                duration_sec=self._config.capture.interval_sec, timestamp=now
+            )
+        self._audio_thread = threading.Thread(target=_record, daemon=True)
+        self._audio_thread.start()
+
+    def _collect_audio(self) -> tuple[str, str]:
+        """Collect audio from previous interval: returns (audio_path, transcription)."""
+        if self._audio_thread is not None:
+            self._audio_thread.join(timeout=5)
+            self._audio_thread = None
+
+        audio_path = self._pending_audio or ""
+        self._pending_audio = None
+        transcription = ""
+        if audio_path:
+            abs_audio = self._config.data_dir / audio_path
+            transcription = self._transcriber.transcribe(Path(abs_audio))
+            if transcription:
+                log.info("Transcribed: %s", transcription[:80])
+        return audio_path, transcription
+
     def _tick(self):
         raw_frame = self._camera.capture()
         if raw_frame is None:
@@ -69,6 +102,12 @@ class Daemon:
 
         now = datetime.now()
         self._frame_count += 1
+
+        # Collect audio from previous interval (recorded during sleep)
+        audio_path, transcription = self._collect_audio()
+
+        # Start recording audio for the next interval (runs during processing + sleep)
+        self._start_audio_recording(now)
 
         # Save webcam frame + screen capture
         rel_path = self._frame_store.save(raw_frame, now)
@@ -84,6 +123,8 @@ class Daemon:
             timestamp=now,
             path=rel_path,
             screen_path=screen_path,
+            audio_path=audio_path,
+            transcription=transcription,
             brightness=brightness,
             motion_score=motion_score,
             scene_type=scene_type,
@@ -111,11 +152,12 @@ class Daemon:
             ))
 
         log.info(
-            "frame=%d bright=%.0f motion=%.3f scene=%s",
+            "frame=%d bright=%.0f motion=%.3f scene=%s audio=%s",
             self._frame_count, brightness, motion_score, scene_type.value,
+            "yes" if audio_path else "no",
         )
 
-        # Claude frame analysis (every frame)
+        # Claude frame analysis (every frame, now with transcription context)
         description = self._frame_analyzer.analyze(frame, self._config.data_dir)
         if description:
             self._db.update_frame_description(frame_id, description)

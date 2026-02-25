@@ -28,6 +28,8 @@ class Frame:
     timestamp: datetime = field(default_factory=datetime.now)
     path: str = ""
     screen_path: str = ""
+    audio_path: str = ""
+    transcription: str = ""
     brightness: float = 0.0
     motion_score: float = 0.0
     scene_type: SceneType = SceneType.NORMAL

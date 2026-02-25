@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS frames (
     timestamp TEXT NOT NULL,
     path TEXT NOT NULL,
     screen_path TEXT DEFAULT '',
+    audio_path TEXT DEFAULT '',
+    transcription TEXT DEFAULT '',
     brightness REAL DEFAULT 0,
     motion_score REAL DEFAULT 0,
     scene_type TEXT DEFAULT 'normal',
@@ -74,6 +76,12 @@ class Database:
         if "screen_path" not in cols:
             self._conn.execute("ALTER TABLE frames ADD COLUMN screen_path TEXT DEFAULT ''")
             self._conn.commit()
+        if "audio_path" not in cols:
+            self._conn.execute("ALTER TABLE frames ADD COLUMN audio_path TEXT DEFAULT ''")
+            self._conn.commit()
+        if "transcription" not in cols:
+            self._conn.execute("ALTER TABLE frames ADD COLUMN transcription TEXT DEFAULT ''")
+            self._conn.commit()
         # Ensure summaries table exists
         self._conn.executescript(MIGRATE_SUMMARIES)
 
@@ -84,12 +92,15 @@ class Database:
 
     def insert_frame(self, frame: Frame) -> int:
         cur = self._conn.execute(
-            """INSERT INTO frames (timestamp, path, screen_path, brightness, motion_score, scene_type, claude_description)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO frames (timestamp, path, screen_path, audio_path, transcription,
+               brightness, motion_score, scene_type, claude_description)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 frame.timestamp.isoformat(),
                 frame.path,
                 frame.screen_path,
+                frame.audio_path,
+                frame.transcription,
                 frame.brightness,
                 frame.motion_score,
                 frame.scene_type.value,
@@ -243,6 +254,8 @@ class Database:
             timestamp=datetime.fromisoformat(row["timestamp"]),
             path=row["path"],
             screen_path=row["screen_path"] or "",
+            audio_path=row["audio_path"] or "",
+            transcription=row["transcription"] or "",
             brightness=row["brightness"],
             motion_score=row["motion_score"],
             scene_type=SceneType(row["scene_type"]),

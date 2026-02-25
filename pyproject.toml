@@ -11,6 +11,7 @@ dependencies = [
     "opencv-python-headless>=4.9",
     "click>=8.1",
     "rich>=13.0",
+    "faster-whisper>=1.0",
 ]
 
 [project.scripts]

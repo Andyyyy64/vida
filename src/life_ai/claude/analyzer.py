@@ -80,29 +80,37 @@ class FrameAnalyzer:
             log.warning("No images to analyze")
             return ""
 
+        # Build image instructions
+        parts = []
         if has_cam and has_screen:
-            prompt = (
+            parts.append(
                 f"以下の2つの画像を読んで、この人が今何をしているか1-2文で日本語で説明してください。\n"
                 f"1. ウェブカメラ映像: {cam_path}\n"
                 f"2. PC画面キャプチャ: {screen_path}\n"
                 f"ウェブカメラからは人物の物理的な状態を、画面キャプチャからはPC上での活動内容を読み取ってください。"
-                f"説明だけを出力してください。"
             )
         elif has_cam:
-            prompt = (
+            parts.append(
                 f"画像ファイル {cam_path} を読んで、ウェブカメラに写っているものを"
                 f"1-2文で簡潔に日本語で説明してください。"
-                f"人物がいれば、その状態（PC作業中、スマホを見ている、離席、寝ている等）に注目してください。"
-                f"説明だけを出力してください。"
             )
         else:
-            prompt = (
+            parts.append(
                 f"画像ファイル {screen_path} を読んで、PC画面に表示されている内容を"
                 f"1-2文で簡潔に日本語で説明してください。"
-                f"どのアプリ・サイトを使っているか、何の作業をしているかに注目してください。"
-                f"説明だけを出力してください。"
             )
 
+        # Add transcription context if available
+        if frame.transcription:
+            parts.append(
+                f"\nまた、この30秒間に以下の音声が録音されています:\n"
+                f"「{frame.transcription}」\n"
+                f"映像と音声の両方を踏まえて説明してください。"
+            )
+
+        parts.append("説明だけを出力してください。")
+
+        prompt = "\n".join(parts)
         result = _call_claude(prompt)
         return result or ""
 
@@ -255,11 +263,14 @@ class SummaryGenerator:
         lines = []
         for f in frames:
             desc = f.claude_description or "(未分析)"
-            lines.append(
+            line = (
                 f"[{f.timestamp.strftime('%H:%M:%S')}] "
                 f"明るさ={f.brightness:.0f} 動き={f.motion_score:.3f} "
                 f"| {desc}"
             )
+            if f.transcription:
+                line += f"\n  🎤 音声: 「{f.transcription}」"
+            lines.append(line)
         return "\n".join(lines)
 
     @staticmethod
