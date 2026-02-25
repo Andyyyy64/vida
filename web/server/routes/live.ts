@@ -3,11 +3,31 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DATA_DIR, getDb } from '../db.js';
 
+const LIVE_STREAM_URL = process.env.LIVE_STREAM_URL || 'http://localhost:3002/stream';
+
 const app = new Hono();
 
-// GET /api/live/frame
+// GET /api/live/stream - proxy MJPEG stream from Python daemon
+app.get('/stream', async (c) => {
+  try {
+    const res = await fetch(LIVE_STREAM_URL);
+    if (!res.ok || !res.body) {
+      return c.json({ error: 'live stream unavailable' }, 503);
+    }
+    return new Response(res.body, {
+      headers: {
+        'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
+  } catch {
+    return c.json({ error: 'live stream unavailable' }, 503);
+  }
+});
+
+// GET /api/live/frame - single JPEG snapshot (fallback)
 app.get('/frame', (c) => {
-  // Try live/latest.jpg first (written by daemon each tick)
   const livePath = resolve(DATA_DIR, 'live', 'latest.jpg');
   if (existsSync(livePath)) {
     const data = readFileSync(livePath);
@@ -19,7 +39,6 @@ app.get('/frame', (c) => {
     });
   }
 
-  // Fallback: serve the most recent frame from DB
   const db = getDb();
   const row = db.prepare('SELECT path FROM frames ORDER BY timestamp DESC LIMIT 1').get() as
     | { path: string }

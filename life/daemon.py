@@ -9,6 +9,8 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import cv2
+
 from life.analysis.motion import MotionDetector
 from life.analysis.scene import SceneAnalyzer
 from life.analysis.transcribe import Transcriber
@@ -18,6 +20,7 @@ from life.capture.frame_store import FrameStore
 from life.capture.screen import ScreenCapture
 from life.claude.analyzer import FrameAnalyzer, SummaryGenerator
 from life.config import Config
+from life.live import LiveServer
 from life.storage.database import Database
 from life.storage.models import Event, Frame, SceneType, SCALES
 
@@ -40,6 +43,7 @@ class Daemon:
         self._scene = SceneAnalyzer(config.analysis.brightness_dark, config.analysis.brightness_bright)
         self._frame_analyzer = FrameAnalyzer()
         self._summary_gen = SummaryGenerator(self._db, config.data_dir)
+        self._live = LiveServer(port=3002)
         self._frame_count = 0
         self._last_scene: SceneType | None = None
         self._pending_audio: str | None = None  # audio from previous interval
@@ -59,15 +63,26 @@ class Daemon:
             return
 
         self._running = True
+        self._live.start()
         log.info("Daemon started (interval=%ds)", self._config.capture.interval_sec)
 
         try:
             while self._running:
                 self._tick()
-                time.sleep(self._config.capture.interval_sec)
+                # Between ticks: continuously feed live stream (~10fps)
+                end_time = time.time() + self._config.capture.interval_sec
+                while self._running and time.time() < end_time:
+                    raw = self._camera.capture()
+                    if raw is not None:
+                        _, jpeg = cv2.imencode(
+                            ".jpg", raw, [cv2.IMWRITE_JPEG_QUALITY, 70]
+                        )
+                        self._live.update_frame(jpeg.tobytes())
+                    time.sleep(0.1)
         except Exception:
             log.exception("Daemon crashed")
         finally:
+            self._live.stop()
             self._camera.close()
             self._db.close()
             self._cleanup_pid()
@@ -102,6 +117,10 @@ class Daemon:
         raw_frame = self._camera.capture()
         if raw_frame is None:
             return
+
+        # Update live feed
+        _, jpeg = cv2.imencode(".jpg", raw_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        self._live.update_frame(jpeg.tobytes())
 
         now = datetime.now()
         self._frame_count += 1
