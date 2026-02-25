@@ -16,6 +16,17 @@ log = logging.getLogger(__name__)
 CLAUDE_CMD = "claude"
 
 
+def _load_context(data_dir: Path) -> str:
+    """Load user context from data/context.md if it exists."""
+    ctx_path = data_dir / "context.md"
+    if not ctx_path.exists():
+        return ""
+    try:
+        return ctx_path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+
+
 def _find_claude() -> str | None:
     return shutil.which(CLAUDE_CMD)
 
@@ -80,8 +91,18 @@ class FrameAnalyzer:
             log.warning("No images to analyze")
             return ""
 
-        # Build image instructions
+        # Load user context
+        context = _load_context(data_dir)
         parts = []
+
+        if context:
+            parts.append(
+                f"あなたは継続的なライフログ記録システムです。以下はユーザーの背景情報です:\n"
+                f"---\n{context}\n---\n"
+                f"この情報を踏まえて、人物を名前で呼び、継続的な観察として記述してください。\n"
+            )
+
+        # Build image instructions
         if has_cam and has_screen:
             parts.append(
                 f"以下の2つの画像を読んで、この人が今何をしているか1-2文で日本語で説明してください。\n"
@@ -121,6 +142,17 @@ class SummaryGenerator:
     def __init__(self, db: Database, data_dir: Path):
         self._db = db
         self._data_dir = data_dir
+        self._context = _load_context(data_dir)
+
+    def _context_prefix(self) -> str:
+        """Return context preamble for summary prompts."""
+        if not self._context:
+            return ""
+        return (
+            f"あなたは継続的なライフログ記録システムです。以下はユーザーの背景情報です:\n"
+            f"---\n{self._context}\n---\n"
+            f"人物を名前で呼び、継続的な観察として記述してください。\n\n"
+        )
 
     def _time_context(self, now: datetime, subs_or_frames: list) -> str:
         """Build time context string from actual data timestamps."""
@@ -149,6 +181,7 @@ class SummaryGenerator:
         ctx = self._time_context(now, frames)
         descriptions = self._format_frame_list(frames)
         prompt = (
+            f"{self._context_prefix()}"
             f"{self._GROUND_RULE}"
             f"{ctx}\n"
             f"以下はウェブカメラ+画面キャプチャの観察記録です。\n\n"
@@ -213,6 +246,7 @@ class SummaryGenerator:
         ctx = self._time_context(now, subs)
         sub_text = self._format_summaries(subs)
         prompt = (
+            f"{self._context_prefix()}"
             f"{self._GROUND_RULE}"
             f"{ctx}\n"
             f"以下はこの期間の活動サマリーです。\n\n"
@@ -240,6 +274,7 @@ class SummaryGenerator:
         ctx = self._time_context(now, subs)
         sub_text = self._format_summaries(subs)
         prompt = (
+            f"{self._context_prefix()}"
             f"{self._GROUND_RULE}"
             f"{ctx}\n"
             f"以下はこの期間の活動記録です。\n\n"

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 export function LiveFeed() {
   const [src, setSrc] = useState<string | null>(null);
-  const [, setLive] = useState(false);
+  const [live, setLive] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -19,15 +19,16 @@ export function LiveFeed() {
 
   return (
     <div className="live-feed">
-      <div className="live-indicator">
-        <span className="live-dot" />
-        LIVE
+      <div className={`live-indicator ${live ? 'active' : ''}`}>
+        <span className={`live-dot ${live ? '' : 'offline'}`} />
+        {live ? 'LIVE' : 'OFFLINE'}
       </div>
       {src && (
         <img
           src={src}
           alt="Live feed"
           className="live-image"
+          style={{ display: live ? 'block' : 'none' }}
           onLoad={() => setLive(true)}
           onError={() => setLive(false)}
         />
