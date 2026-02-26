@@ -44,6 +44,20 @@ CREATE INDEX IF NOT EXISTS idx_summaries_timestamp ON summaries(timestamp);
 CREATE INDEX IF NOT EXISTS idx_summaries_scale ON summaries(scale);
 """
 
+MIGRATE_FTS = """
+CREATE VIRTUAL TABLE IF NOT EXISTS frames_fts USING fts5(
+    claude_description, transcription, activity,
+    content='frames', content_rowid='id',
+    tokenize='trigram'
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS summaries_fts USING fts5(
+    content,
+    content='summaries', content_rowid='id',
+    tokenize='trigram'
+);
+"""
+
 MIGRATE_CLAUDE_DESC = """
 ALTER TABLE frames ADD COLUMN claude_description TEXT DEFAULT '';
 """
@@ -95,6 +109,53 @@ class Database:
             self._conn.commit()
         # Ensure summaries table exists
         self._conn.executescript(MIGRATE_SUMMARIES)
+        # FTS tables
+        self._conn.executescript(MIGRATE_FTS)
+        self._rebuild_fts_if_needed()
+
+    def _rebuild_fts_if_needed(self):
+        """Rebuild FTS indexes if they are empty but source tables have data."""
+        frame_count = self._conn.execute("SELECT COUNT(*) FROM frames").fetchone()[0]
+        fts_count = self._conn.execute(
+            "SELECT COUNT(*) FROM frames_fts"
+        ).fetchone()[0]
+        if frame_count > 0 and fts_count == 0:
+            self._conn.execute(
+                "INSERT INTO frames_fts(frames_fts) VALUES('rebuild')"
+            )
+            self._conn.execute(
+                "INSERT INTO summaries_fts(summaries_fts) VALUES('rebuild')"
+            )
+            self._conn.commit()
+
+    def _sync_frame_fts(self, frame_id: int):
+        """Sync a single frame to FTS index."""
+        row = self._conn.execute(
+            "SELECT claude_description, transcription, activity FROM frames WHERE id=?",
+            (frame_id,),
+        ).fetchone()
+        if row:
+            # Delete old entry then insert new
+            self._conn.execute(
+                "INSERT INTO frames_fts(frames_fts, rowid, claude_description, transcription, activity) "
+                "VALUES('delete', ?, ?, ?, ?)",
+                (frame_id, row["claude_description"] or "", row["transcription"] or "", row["activity"] or ""),
+            )
+            self._conn.execute(
+                "INSERT INTO frames_fts(rowid, claude_description, transcription, activity) VALUES(?, ?, ?, ?)",
+                (frame_id, row["claude_description"] or "", row["transcription"] or "", row["activity"] or ""),
+            )
+
+    def _sync_summary_fts(self, summary_id: int):
+        """Sync a single summary to FTS index."""
+        row = self._conn.execute(
+            "SELECT content FROM summaries WHERE id=?", (summary_id,),
+        ).fetchone()
+        if row:
+            self._conn.execute(
+                "INSERT INTO summaries_fts(rowid, content) VALUES(?, ?)",
+                (summary_id, row["content"] or ""),
+            )
 
     def close(self):
         self._conn.close()
@@ -121,7 +182,10 @@ class Database:
             ),
         )
         self._conn.commit()
-        return cur.lastrowid  # type: ignore[return-value]
+        frame_id = cur.lastrowid
+        self._sync_frame_fts(frame_id)  # type: ignore[arg-type]
+        self._conn.commit()
+        return frame_id  # type: ignore[return-value]
 
     def update_frame_description(self, frame_id: int, description: str):
         self._conn.execute(
@@ -135,6 +199,7 @@ class Database:
             "UPDATE frames SET claude_description=?, activity=? WHERE id=?",
             (description, activity, frame_id),
         )
+        self._sync_frame_fts(frame_id)
         self._conn.commit()
 
     def get_recent_activities(self, limit: int = 15) -> list[str]:
@@ -229,7 +294,10 @@ class Database:
             ),
         )
         self._conn.commit()
-        return cur.lastrowid  # type: ignore[return-value]
+        summary_id = cur.lastrowid
+        self._sync_summary_fts(summary_id)  # type: ignore[arg-type]
+        self._conn.commit()
+        return summary_id  # type: ignore[return-value]
 
     def get_summaries_for_date(self, d: date, scale: str | None = None) -> list[Summary]:
         start = datetime(d.year, d.month, d.day).isoformat()

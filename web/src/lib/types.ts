@@ -56,3 +56,8 @@ export interface ActivityStats {
   activities: ActivityStat[];
   hourly: HourlyActivityStat[];
 }
+
+export interface SearchResults {
+  frames: Frame[];
+  summaries: Summary[];
+}

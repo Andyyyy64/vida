@@ -1,4 +1,4 @@
-import type { Frame, Event, Summary, DayStats, ActivityStats } from './types';
+import type { Frame, Event, Summary, DayStats, ActivityStats, SearchResults } from './types';
 
 const BASE = '/api';
 
@@ -25,5 +25,11 @@ export const api = {
     get: (date: string) => fetchJson<DayStats>(`/stats?date=${date}`),
     dates: () => fetchJson<string[]>('/stats/dates'),
     activities: (date: string) => fetchJson<ActivityStats>(`/stats/activities?date=${date}`),
+  },
+  search: (q: string, from?: string, to?: string) => {
+    const params = new URLSearchParams({ q });
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return fetchJson<SearchResults>(`/search?${params}`);
   },
 };
