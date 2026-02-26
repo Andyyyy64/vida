@@ -453,6 +453,35 @@ def review(ctx, target_date: str | None, as_json: bool):
     db.close()
 
 
+@cli.command("notify-test")
+@click.pass_context
+def notify_test(ctx):
+    """Send a test notification to verify webhook configuration."""
+    config: Config = ctx.obj["config"]
+
+    if not config.notify.enabled:
+        console.print("[yellow]Notifications are not enabled.[/yellow]")
+        console.print("Add to life.toml:")
+        console.print("[dim]  [notify]")
+        console.print("  enabled = true")
+        console.print("  provider = \"discord\"  # or \"line\"")
+        console.print("  webhook_url = \"https://discord.com/api/webhooks/...\"[/dim]")
+        return
+
+    from life.notify import send_notification
+
+    console.print(f"[dim]Sending test to {config.notify.provider}...[/dim]")
+    ok = send_notification(
+        config.notify,
+        "life.ai Test Notification",
+        "This is a test message from life.ai. If you see this, notifications are working correctly!",
+    )
+    if ok:
+        console.print("[green]Notification sent successfully![/green]")
+    else:
+        console.print("[red]Failed to send notification. Check logs and webhook_url.[/red]")
+
+
 def _parse_date(s: str) -> date:
     try:
         return date.fromisoformat(s)

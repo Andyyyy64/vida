@@ -33,11 +33,19 @@ class LLMConfig:
 
 
 @dataclass
+class NotifyConfig:
+    provider: str = ""  # "discord" or "line"
+    webhook_url: str = ""
+    enabled: bool = False
+
+
+@dataclass
 class Config:
     data_dir: Path = field(default_factory=lambda: DEFAULT_DATA_DIR)
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
+    notify: NotifyConfig = field(default_factory=NotifyConfig)
     pid_file: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.pid")
     db_path: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.db")
 
@@ -65,4 +73,11 @@ class Config:
             for k, v in data["llm"].items():
                 if hasattr(cfg.llm, k):
                     setattr(cfg.llm, k, str(v))
+        if "notify" in data:
+            for k, v in data["notify"].items():
+                if hasattr(cfg.notify, k):
+                    if k == "enabled":
+                        cfg.notify.enabled = bool(v)
+                    else:
+                        setattr(cfg.notify, k, str(v))
         return cfg

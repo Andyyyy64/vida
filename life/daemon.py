@@ -23,6 +23,7 @@ from life.capture.screen import ScreenCapture
 from life.config import Config
 from life.live import LiveServer
 from life.llm import create_provider
+from life.notify import send_notification
 from life.storage.database import Database
 from life.storage.models import Event, Frame, SceneType, SCALES
 
@@ -245,7 +246,9 @@ class Daemon:
             existing = self._db.get_report(yesterday)
             if not existing:
                 log.info("Generating daily report for %s...", yesterday)
-                self._report_gen.generate(yesterday)
+                report = self._report_gen.generate(yesterday)
+                if report:
+                    self._send_report_notification(yesterday, report)
             self._last_report_date = today_str
 
     def _check_summaries(self, now: datetime):
@@ -269,6 +272,12 @@ class Daemon:
             if summary:
                 self._last_summary[scale] = now
                 log.info("Summary [%s]: %s", scale, summary.content[:80])
+
+    def _send_report_notification(self, report_date, report):
+        """Send daily report via configured notification channel."""
+        title = f"life.ai Daily Report — {report_date.isoformat()}"
+        body = f"{report.content}\n\n{report.frame_count} frames | Focus {report.focus_pct:.0f}%"
+        send_notification(self._config.notify, title, body)
 
     def _write_pid(self):
         self._config.pid_file.parent.mkdir(parents=True, exist_ok=True)
