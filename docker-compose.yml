@@ -1,0 +1,32 @@
+services:
+  daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile.daemon
+    volumes:
+      - ./data:/app/data
+      - ./life.toml:/app/life.toml:ro
+    env_file: .env
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/snd:/dev/snd
+    group_add:
+      - video
+      - audio
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATA_DIR=/app/data
+      - LIVE_STREAM_URL=http://daemon:3002/stream
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - daemon
+    restart: unless-stopped

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+data/
+node_modules/
+web/node_modules/
+web/dist/
+.env
+.git/
+.claude/
+*.pt
