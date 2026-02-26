@@ -37,7 +37,7 @@ class Daemon:
         self._camera = Camera(config.capture)
         self._frame_store = FrameStore(config.data_dir, config.capture.jpeg_quality)
         self._screen = ScreenCapture(config.data_dir)
-        self._audio = AudioCapture(config.data_dir)
+        self._audio = AudioCapture(config.data_dir, config.capture.audio_device, config.capture.audio_sample_rate)
         self._db = Database(config.db_path)
         self._motion = MotionDetector(config.analysis.motion_threshold)
         self._scene = SceneAnalyzer(config.analysis.brightness_dark, config.analysis.brightness_bright)

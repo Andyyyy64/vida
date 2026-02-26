@@ -16,6 +16,8 @@ class CaptureConfig:
     height: int = 480
     jpeg_quality: int = 85
     screen_burst_count: int = 3
+    audio_device: str = ""  # ALSA device, e.g. "plughw:1,0". Empty = auto-detect
+    audio_sample_rate: int = 44100
 
 
 @dataclass

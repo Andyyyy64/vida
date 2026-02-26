@@ -3,20 +3,131 @@ from __future__ import annotations
 import grp
 import logging
 import os
+import re
 import shlex
+import struct
 import subprocess
+import wave
 from datetime import datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 
+def _detect_device() -> str:
+    """Auto-detect the best ALSA capture device, preferring non-webcam mics."""
+    try:
+        result = subprocess.run(
+            ["arecord", "-l"], capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return "plughw:0,0"
+
+        # Parse "card N: NAME [DESC], device M: ..."
+        cards: list[tuple[int, int, str]] = []
+        for line in result.stdout.splitlines():
+            m = re.match(r"card (\d+):.*\[(.+?)\].*device (\d+):", line)
+            if m:
+                card, name, dev = int(m.group(1)), m.group(2), int(m.group(3))
+                cards.append((card, dev, name))
+
+        if not cards:
+            return "plughw:0,0"
+
+        # Prefer non-webcam devices (webcams usually have "CAM" or "C270" etc.)
+        webcam_keywords = {"webcam", "cam", "c270", "c920", "c922", "brio"}
+        non_webcam = [
+            (c, d, n) for c, d, n in cards
+            if not any(kw in n.lower() for kw in webcam_keywords)
+        ]
+        if non_webcam:
+            card, dev, name = non_webcam[0]
+            log.info("Auto-detected audio device: plughw:%d,%d (%s)", card, dev, name)
+            return f"plughw:{card},{dev}"
+
+        card, dev, name = cards[0]
+        log.info("Using first audio device: plughw:%d,%d (%s)", card, dev, name)
+        return f"plughw:{card},{dev}"
+
+    except Exception:
+        log.warning("Audio device detection failed, using plughw:0,0")
+        return "plughw:0,0"
+
+
+def _trim_silence(filepath: Path, threshold: int = 500, min_voice_sec: float = 0.3) -> bool:
+    """Trim leading/trailing silence from a WAV file in-place.
+
+    Returns True if the file contains speech, False if mostly silent.
+    """
+    try:
+        with wave.open(str(filepath), "rb") as wf:
+            n_channels = wf.getnchannels()
+            sampwidth = wf.getsampwidth()
+            framerate = wf.getframerate()
+            n_frames = wf.getnframes()
+            raw = wf.readframes(n_frames)
+
+        if sampwidth != 2:
+            return True  # only handle 16-bit
+
+        # Convert to absolute sample values
+        fmt = f"<{n_frames * n_channels}h"
+        samples = struct.unpack(fmt, raw)
+
+        # For stereo, take max of channels per frame
+        if n_channels == 2:
+            mono = [max(abs(samples[i]), abs(samples[i + 1])) for i in range(0, len(samples), 2)]
+        else:
+            mono = [abs(s) for s in samples]
+
+        # Find first and last sample above threshold
+        first_voice = -1
+        last_voice = -1
+        for i, v in enumerate(mono):
+            if v > threshold:
+                if first_voice < 0:
+                    first_voice = i
+                last_voice = i
+
+        if first_voice < 0:
+            return False  # all silence
+
+        voice_duration = (last_voice - first_voice) / framerate
+        if voice_duration < min_voice_sec:
+            return False  # too short to be meaningful speech
+
+        # Add 0.2s padding around voice
+        pad_frames = int(framerate * 0.2)
+        start = max(0, first_voice - pad_frames)
+        end = min(len(mono), last_voice + pad_frames)
+
+        # Write trimmed audio
+        if n_channels == 2:
+            trimmed_raw = raw[start * 2 * sampwidth : end * 2 * sampwidth]
+        else:
+            trimmed_raw = raw[start * sampwidth : end * sampwidth]
+
+        with wave.open(str(filepath), "wb") as wf:
+            wf.setnchannels(n_channels)
+            wf.setsampwidth(sampwidth)
+            wf.setframerate(framerate)
+            wf.writeframes(trimmed_raw)
+
+        trimmed_duration = (end - start) / framerate
+        log.debug("Trimmed audio: %.1fs → %.1fs", n_frames / framerate, trimmed_duration)
+        return True
+
+    except Exception:
+        log.debug("Silence trimming failed, keeping original", exc_info=True)
+        return True  # keep file on error
+
+
 class AudioCapture:
     """Capture audio using arecord (ALSA) for a given duration."""
 
-    def __init__(self, data_dir: Path, device: str = "plughw:1,0", sample_rate: int = 16000):
+    def __init__(self, data_dir: Path, device: str = "", sample_rate: int = 44100):
         self._data_dir = data_dir
-        self._device = device
+        self._device = device or _detect_device()
         self._sample_rate = sample_rate
 
     def capture(self, duration_sec: int = 30, timestamp: datetime | None = None) -> str | None:
@@ -54,6 +165,14 @@ class AudioCapture:
             if not filepath.exists() or filepath.stat().st_size < 100:
                 log.warning("Audio file too small or missing: %s", filepath)
                 return None
+
+            # Trim silence — skip transcription if no voice detected
+            has_voice = _trim_silence(filepath)
+            if not has_voice:
+                log.debug("No voice detected in %s, removing", filepath)
+                filepath.unlink(missing_ok=True)
+                return None
+
             rel_path = str(filepath.relative_to(self._data_dir))
             log.debug("Audio captured: %s", rel_path)
             return rel_path
