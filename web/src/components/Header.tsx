@@ -5,14 +5,18 @@ interface Props {
   onDateChange: (date: string) => void;
   availableDates: string[];
   frameCount: number;
+  onDashboardClick: () => void;
 }
 
-export function Header({ date, onDateChange, availableDates, frameCount }: Props) {
+export function Header({ date, onDateChange, availableDates, frameCount, onDashboardClick }: Props) {
   return (
     <header className="header">
       <div className="header-left">
         <h1 className="header-title">life.ai</h1>
         <span className="header-count">{frameCount} frames</span>
+        <button className="dashboard-btn" onClick={onDashboardClick}>
+          Dashboard
+        </button>
       </div>
       <div className="header-center">
         <input

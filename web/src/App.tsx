@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { SummaryPanel } from './components/SummaryPanel';
 import { SearchPanel } from './components/SearchPanel';
+import { Dashboard } from './components/Dashboard';
 import { Timeline } from './components/Timeline';
 import { DetailPanel } from './components/DetailPanel';
 import { ActivityHeatmap } from './components/ActivityHeatmap';
@@ -21,6 +22,7 @@ export default function App() {
   const [stats, setStats] = useState<DayStats | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [leftTab, setLeftTab] = useState<'summaries' | 'search'>('summaries');
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const { frames, loading: framesLoading } = useFrames(date);
   const { summaries } = useSummaries(date);
@@ -42,6 +44,10 @@ export default function App() {
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (showDashboard) {
+        if (e.key === 'Escape') setShowDashboard(false);
+        return;
+      }
       if (!selectedFrame || frames.length === 0) return;
       const idx = frames.findIndex((f) => f.id === selectedFrame.id);
       if (idx === -1) return;
@@ -53,7 +59,7 @@ export default function App() {
         setSelectedFrame(frames[idx + 1]);
       }
     },
-    [selectedFrame, frames],
+    [selectedFrame, frames, showDashboard],
   );
 
   useEffect(() => {
@@ -68,6 +74,7 @@ export default function App() {
         onDateChange={setDate}
         availableDates={availableDates}
         frameCount={stats?.frames ?? 0}
+        onDashboardClick={() => setShowDashboard(true)}
       />
       <div className="main-layout">
         <div className="left-panel">
@@ -112,6 +119,7 @@ export default function App() {
         <DetailPanel frame={selectedFrame} />
       </div>
       {stats && <ActivityHeatmap activity={stats.activity} />}
+      {showDashboard && <Dashboard date={date} onClose={() => setShowDashboard(false)} />}
     </div>
   );
 }
