@@ -1,6 +1,15 @@
 # life.ai
 
-Personal life observer — an AI-powered system that records and analyzes your daily activities through webcam, screen capture, and audio.
+A personal AI observer that automatically records your daily life and enables reflection and pattern discovery.
+
+## Vision
+
+**"Record your life, reflect on it, and see the patterns."**
+
+Two core values:
+
+1. **Externalized memory** — Instantly answer "what was I doing then?" Your day is recorded automatically, no journaling required.
+2. **Productivity visibility** — See "how focused was I today?" and "where did my time go?" in concrete numbers.
 
 ## Features
 
@@ -12,6 +21,14 @@ Personal life observer — an AI-powered system that records and analyzes your d
 - **Event detection** — Detects scene changes (light→dark) and motion spikes
 - **Live feed** — MJPEG 10fps real-time video stream
 - **Web UI** — Timeline view, frame details, burst screenshot switching, summary browsing
+
+## Roadmap
+
+- [ ] Full-text search — Search across frame analyses and summaries
+- [ ] Daily report auto-generation — Automatic daily reflections delivered to you
+- [ ] Weekly/monthly stats dashboard — Visualize long-term patterns
+- [ ] Improved activity classification — Finer-grained, more accurate categorization
+- [ ] Mobile support / notification integration — Reflection that fits into daily life
 
 ## Setup
 
@@ -65,6 +82,14 @@ cd web && npm run dev
 - Web UI: http://localhost:5173
 - API: http://localhost:3001
 - Live feed: http://localhost:3002
+
+### Docker
+
+```bash
+docker compose up
+```
+
+For environments with camera/audio devices, configure device mounts in `docker-compose.override.yml`.
 
 ## CLI Commands
 
@@ -128,4 +153,4 @@ gemini_model = "gemini-2.5-flash"
 - **LLM**: Google Gemini / Anthropic Claude (abstracted provider layer)
 - **Frontend**: React 19 / TypeScript / Vite
 - **Web Server**: Hono + better-sqlite3
-- **Infra**: WSL2 + powershell.exe (screen capture)
+- **Infra**: Docker Compose / WSL2 + powershell.exe (screen capture)
