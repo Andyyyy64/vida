@@ -45,11 +45,11 @@ class ScreenCapture:
             result = subprocess.run(
                 ["powershell.exe", "-NoProfile", "-Command", script],
                 capture_output=True,
-                text=True,
                 timeout=10,
             )
             if result.returncode != 0:
-                log.warning("Screen capture failed: %s", result.stderr[:200])
+                stderr = result.stderr.decode("utf-8", errors="replace")
+                log.warning("Screen capture failed: %s", stderr[:200])
                 return None
             if not filepath.exists():
                 log.warning("Screenshot file not created: %s", filepath)

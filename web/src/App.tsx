@@ -92,6 +92,31 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // Scroll navigation: scroll down = next frame, scroll up = previous
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      if (showDashboard) return;
+      if (!selectedFrame || frames.length === 0) return;
+      // Ignore if scrolling inside a scrollable element
+      const target = e.target as HTMLElement;
+      if (target.closest('.detail-panel, .left-panel, .summary-panel')) return;
+      const idx = frames.findIndex((f) => f.id === selectedFrame.id);
+      if (idx === -1) return;
+      e.preventDefault();
+      if (e.deltaY > 0 && idx < frames.length - 1) {
+        setSelectedFrame(frames[idx + 1]);
+      } else if (e.deltaY < 0 && idx > 0) {
+        setSelectedFrame(frames[idx - 1]);
+      }
+    },
+    [selectedFrame, frames, showDashboard],
+  );
+
+  useEffect(() => {
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
+
   const showLeft = !isMobile || mobilePanel === 'left';
   const showTimeline = !isMobile || mobilePanel === 'timeline';
   const showDetail = !isMobile || mobilePanel === 'detail';
