@@ -137,19 +137,23 @@ class Database:
             )
             self._conn.commit()
 
-    def _sync_frame_fts(self, frame_id: int):
+    def _sync_frame_fts(self, frame_id: int, is_update: bool = False):
         """Sync a single frame to FTS index."""
         row = self._conn.execute(
             "SELECT claude_description, transcription, activity FROM frames WHERE id=?",
             (frame_id,),
         ).fetchone()
         if row:
-            # Delete old entry then insert new
-            self._conn.execute(
-                "INSERT INTO frames_fts(frames_fts, rowid, claude_description, transcription, activity) "
-                "VALUES('delete', ?, ?, ?, ?)",
-                (frame_id, row["claude_description"] or "", row["transcription"] or "", row["activity"] or ""),
-            )
+            if is_update:
+                # Delete old entry before re-inserting
+                try:
+                    self._conn.execute(
+                        "INSERT INTO frames_fts(frames_fts, rowid, claude_description, transcription, activity) "
+                        "VALUES('delete', ?, ?, ?, ?)",
+                        (frame_id, row["claude_description"] or "", row["transcription"] or "", row["activity"] or ""),
+                    )
+                except Exception:
+                    pass
             self._conn.execute(
                 "INSERT INTO frames_fts(rowid, claude_description, transcription, activity) VALUES(?, ?, ?, ?)",
                 (frame_id, row["claude_description"] or "", row["transcription"] or "", row["activity"] or ""),
@@ -208,7 +212,7 @@ class Database:
             "UPDATE frames SET claude_description=?, activity=? WHERE id=?",
             (description, activity, frame_id),
         )
-        self._sync_frame_fts(frame_id)
+        self._sync_frame_fts(frame_id, is_update=True)
         self._conn.commit()
 
     def get_recent_activities(self, limit: int = 15) -> list[str]:
@@ -263,6 +267,13 @@ class Database:
             "SELECT * FROM frames ORDER BY timestamp DESC LIMIT 1"
         ).fetchone()
         return self._row_to_frame(row) if row else None
+
+    def get_recent_frames(self, limit: int = 5) -> list[Frame]:
+        rows = self._conn.execute(
+            "SELECT * FROM frames ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [self._row_to_frame(r) for r in reversed(rows)]
 
     # --- Events ---
 

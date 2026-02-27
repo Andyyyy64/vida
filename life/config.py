@@ -35,6 +35,14 @@ class LLMConfig:
 
 
 @dataclass
+class PresenceConfig:
+    enabled: bool = True
+    absent_threshold_ticks: int = 3  # consecutive ticks before state change
+    sleep_start_hour: int = 23
+    sleep_end_hour: int = 8
+
+
+@dataclass
 class NotifyConfig:
     provider: str = ""  # "discord" or "line"
     webhook_url: str = ""
@@ -47,6 +55,7 @@ class Config:
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
+    presence: PresenceConfig = field(default_factory=PresenceConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
     pid_file: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.pid")
     db_path: Path = field(default_factory=lambda: DEFAULT_DATA_DIR / "life.db")
@@ -75,6 +84,10 @@ class Config:
             for k, v in data["llm"].items():
                 if hasattr(cfg.llm, k):
                     setattr(cfg.llm, k, str(v))
+        if "presence" in data:
+            for k, v in data["presence"].items():
+                if hasattr(cfg.presence, k):
+                    setattr(cfg.presence, k, type(getattr(cfg.presence, k))(v))
         if "notify" in data:
             for k, v in data["notify"].items():
                 if hasattr(cfg.notify, k):

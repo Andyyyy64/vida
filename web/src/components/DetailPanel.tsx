@@ -7,6 +7,7 @@ const META_CATEGORIES: Record<string, string[]> = {
   entertainment: ['YouTube視聴', 'ゲーム', 'SNS', '音楽'],
   browsing: ['ブラウジング'],
   break: ['休憩', '離席', '食事'],
+  idle: ['睡眠', '不在'],
 };
 
 const META_COLORS: Record<string, string> = {
@@ -15,6 +16,7 @@ const META_COLORS: Record<string, string> = {
   entertainment: '#d06060',
   browsing: '#d0a840',
   break: '#888888',
+  idle: '#444466',
   other: '#a060b0',
 };
 

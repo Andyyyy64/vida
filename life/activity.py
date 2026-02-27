@@ -20,6 +20,8 @@ CANONICAL_ACTIVITIES: list[str] = [
     "読書",
     "音楽",
     "食事",
+    "睡眠",
+    "不在",
 ]
 
 # Meta-categories for productivity scoring
@@ -29,6 +31,7 @@ META_CATEGORIES: dict[str, list[str]] = {
     "entertainment": ["YouTube視聴", "ゲーム", "SNS", "音楽"],
     "browsing": ["ブラウジング"],
     "break": ["休憩", "離席", "食事"],
+    "idle": ["睡眠", "不在"],
 }
 
 

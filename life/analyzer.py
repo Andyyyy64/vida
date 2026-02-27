@@ -37,6 +37,7 @@ class FrameAnalyzer:
         frame: Frame,
         extra_screen_paths: list[str] | None = None,
         extra_cam_paths: list[str] | None = None,
+        has_face: bool | None = None,
     ) -> tuple[str, str]:
         """Analyze frame and return (description, activity).
 
@@ -44,6 +45,7 @@ class FrameAnalyzer:
             frame: Frame to analyze (with path, screen_path, etc.)
             extra_screen_paths: Change-detected extra screen captures
             extra_cam_paths: Change-detected extra camera captures
+            has_face: Face detection result (True/False/None if disabled)
 
         Returns:
             Tuple of (description, activity_category)
@@ -82,6 +84,21 @@ class FrameAnalyzer:
                 f"---\n{context}\n---\n"
                 "この情報を踏まえて、人物を名前で呼び、継続的な観察として記述してください。\n"
             )
+
+        # Recent context: pass last few frame analyses for continuity
+        recent = self._db.get_recent_frames(limit=5)
+        if recent:
+            lines = []
+            for rf in recent:
+                if rf.claude_description:
+                    ts = rf.timestamp.strftime("%H:%M:%S")
+                    act = rf.activity or "?"
+                    lines.append(f"  [{ts}] {act}: {rf.claude_description}")
+            if lines:
+                parts.append(
+                    "【直近の観察記録】（時系列の連続性を踏まえて分析してください）\n"
+                    + "\n".join(lines) + "\n"
+                )
 
         # Build image list and prompt
         image_paths: list[Path] = []
@@ -150,6 +167,20 @@ class FrameAnalyzer:
                 f"「{frame.transcription}」\n"
                 "映像と音声の両方を踏まえて説明してください。"
             )
+
+        # Presence detection hint
+        if has_face is not None:
+            if has_face:
+                parts.append(
+                    "\n【センサー情報】顔検出: 人物の存在を確認しました。"
+                )
+            else:
+                parts.append(
+                    "\n【センサー情報】顔検出: 人物は検出されませんでした。"
+                    "ただし画面上でアクティブな操作（コード編集、ブラウジングなど）が確認できる場合は、"
+                    "カメラの画角外にいるだけなので、画面の内容に基づいて活動を分類してください。"
+                    "画面にも変化がない場合のみ「睡眠」または「不在」と分類してください。"
+                )
 
         # Activity classification with strict canonical list
         canonical = get_canonical_categories()

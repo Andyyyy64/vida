@@ -13,6 +13,7 @@ import cv2
 
 from life.analysis.change import ChangeDetector
 from life.analysis.motion import MotionDetector
+from life.analysis.presence import PresenceDetector
 from life.analysis.scene import SceneAnalyzer
 from life.analysis.transcribe import Transcriber
 from life.analyzer import FrameAnalyzer, SummaryGenerator
@@ -56,6 +57,14 @@ class Daemon:
         self._extra_screen_paths: list[str] = []
         self._extra_cam_paths: list[str] = []
         self._capture_lock = threading.Lock()
+
+        # Presence detection
+        self._presence = PresenceDetector(
+            absent_threshold_ticks=config.presence.absent_threshold_ticks,
+            sleep_start_hour=config.presence.sleep_start_hour,
+            sleep_end_hour=config.presence.sleep_end_hour,
+        )
+        self._presence_enabled = config.presence.enabled
 
         # Create LLM provider from config
         provider = create_provider(
@@ -226,6 +235,22 @@ class Daemon:
         scene_type = self._scene.classify(brightness)
         motion_score = self._motion.analyze(raw_frame)
 
+        # Presence detection (used as hint for LLM, not to skip processing)
+        has_face: bool | None = None
+        if self._presence_enabled:
+            has_face = self._presence.detect_face(raw_frame)
+            prev_state = self._presence.state
+            self._presence.update(brightness, motion_score, has_face, now)
+            new_state = self._presence.state
+
+            if new_state != prev_state:
+                log.info("Presence: %s -> %s", prev_state.value, new_state.value)
+                self._db.insert_event(Event(
+                    timestamp=now,
+                    event_type="presence_change",
+                    description=f"{prev_state.value} → {new_state.value}",
+                ))
+
         # Collect change-detected extra captures from previous interval
         with self._capture_lock:
             extra_screens = list(self._extra_screen_paths)
@@ -272,16 +297,17 @@ class Daemon:
             ))
 
         log.info(
-            "frame=%d bright=%.0f motion=%.3f scene=%s audio=%s",
+            "frame=%d bright=%.0f motion=%.3f scene=%s presence=%s audio=%s",
             self._frame_count, brightness, motion_score, scene_type.value,
+            self._presence.state.value if self._presence_enabled else "n/a",
             "yes" if audio_path else "no",
         )
 
-        # LLM frame analysis (with change-detected extra captures)
+        # LLM frame analysis (with change-detected extra captures + presence hint)
         all_extra_screens = extra_screens or None
         all_extra_cams = extra_cams or None
         description, activity = self._frame_analyzer.analyze(
-            frame, all_extra_screens, all_extra_cams,
+            frame, all_extra_screens, all_extra_cams, has_face=has_face,
         )
         if description or activity:
             self._db.update_frame_analysis(frame_id, description, activity)

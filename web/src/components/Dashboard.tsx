@@ -14,6 +14,7 @@ const META_COLORS: Record<string, string> = {
   entertainment: '#d06060',
   browsing: '#d0a840',
   break: '#888888',
+  idle: '#444466',
   other: '#a060b0',
 };
 
@@ -23,6 +24,7 @@ const META_LABELS: Record<string, string> = {
   entertainment: 'Entertainment',
   browsing: 'Browsing',
   break: 'Break',
+  idle: 'Idle',
   other: 'Other',
 };
 
@@ -221,10 +223,12 @@ export function Dashboard({ date, onClose }: Props) {
   }));
   const maxActivitySec = Math.max(...activityData.map((a) => a.durationSec), 1);
 
-  // Focus time summary
+  // Focus time summary (exclude idle frames from denominator)
   const totalFrames = rangeStats?.days.find((d) => d.date === date)?.frameCount || 0;
+  const idleFrames = todayMeta['idle'] || 0;
+  const activeFrames = totalFrames - idleFrames;
   const focusFrames = todayMeta['focus'] || 0;
-  const focusPct = totalFrames > 0 ? Math.round((focusFrames / totalFrames) * 100) : 0;
+  const focusPct = activeFrames > 0 ? Math.round((focusFrames / activeFrames) * 100) : 0;
 
   return (
     <div className="dashboard-overlay">

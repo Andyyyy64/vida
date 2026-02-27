@@ -8,6 +8,7 @@ const META_CATEGORIES: Record<string, string[]> = {
   entertainment: ['YouTube視聴', 'ゲーム', 'SNS', '音楽'],
   browsing: ['ブラウジング'],
   break: ['休憩', '離席', '食事'],
+  idle: ['睡眠', '不在'],
 };
 
 function getMetaCategory(activity: string): string {

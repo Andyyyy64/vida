@@ -43,12 +43,16 @@ class ReportGenerator:
         summaries = self._db.get_summaries_for_date(target_date)
         events = self._db.get_events_for_date(target_date)
 
-        # Calculate focus percentage
+        # Calculate focus percentage (exclude idle frames from denominator)
         focus_frames = sum(
             1 for f in frames
             if f.activity and get_meta_category(f.activity) == "focus"
         )
-        focus_pct = (focus_frames / len(frames) * 100) if frames else 0
+        active_frames = sum(
+            1 for f in frames
+            if not f.activity or get_meta_category(f.activity) != "idle"
+        )
+        focus_pct = (focus_frames / active_frames * 100) if active_frames else 0
 
         # Build activity breakdown
         activity_counts: dict[str, int] = {}

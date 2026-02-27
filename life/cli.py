@@ -32,7 +32,7 @@ def _setup_logging(verbose: bool):
 @click.option("-v", "--verbose", is_flag=True)
 @click.pass_context
 def cli(ctx, config_path: str | None, verbose: bool):
-    """life.ai - Personal Life Observer (powered by Claude Code)"""
+    """life.ai - Personal Life Observer (powered by life.ai)"""
     _setup_logging(verbose)
     cfg_path = Path(config_path) if config_path else None
     ctx.ensure_object(dict)
@@ -64,7 +64,7 @@ def start(ctx, background: bool):
         )
         console.print(f"[green]Daemon started in background (PID {proc.pid})[/green]")
     else:
-        console.print("[green]Starting life observer (Claude Code watching)...[/green]")
+        console.print("[green]Starting life observer (life.ai watching)...[/green]")
         from life.daemon import Daemon
         daemon = Daemon(config)
         daemon.run()
@@ -175,7 +175,7 @@ def capture(ctx):
 @cli.command()
 @click.pass_context
 def look(ctx):
-    """Capture a frame and have Claude Code analyze it right now."""
+    """Capture a frame and have life.ai analyze it right now."""
     config: Config = ctx.obj["config"]
 
     from life.analyzer import FrameAnalyzer
@@ -227,11 +227,11 @@ def look(ctx):
 
     if description:
         label = f"[{activity}] " if activity else ""
-        console.print(Panel(f"{label}{description}", title="Claude Code says", border_style="blue"))
+        console.print(Panel(f"{label}{description}", title="life.ai says", border_style="blue"))
         frame_id = db.insert_frame(frame)
         db.update_frame_analysis(frame_id, description, activity)
     else:
-        console.print("[yellow]Claude Code could not analyze the frame[/yellow]")
+        console.print("[yellow]life.ai could not analyze the frame[/yellow]")
     db.close()
 
 
@@ -239,7 +239,7 @@ def look(ctx):
 @click.option("-n", "--count", default=5, help="Number of recent frames")
 @click.pass_context
 def recent(ctx, count: int):
-    """Show recent frame analyses by Claude Code."""
+    """Show recent frame analyses by life.ai."""
     config: Config = ctx.obj["config"]
 
     from life.storage.database import Database
@@ -425,7 +425,7 @@ def report(ctx, target_date: str | None):
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
 @click.pass_context
 def review(ctx, target_date: str | None, as_json: bool):
-    """Generate review package for Claude Code."""
+    """Generate review package for life.ai."""
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
@@ -448,7 +448,7 @@ def review(ctx, target_date: str | None, as_json: bool):
         prompt = packager.get_prompt(d)
         console.print(f"[green]Review package saved:[/green] {out_path}")
         console.print()
-        console.print(Panel(prompt, title="Prompt for Claude Code", border_style="blue"))
+        console.print(Panel(prompt, title="Prompt for life.ai", border_style="blue"))
 
     db.close()
 
