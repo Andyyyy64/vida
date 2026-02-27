@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import type { Frame, Event } from '../lib/types';
+import type { SummaryTimeRange } from './SummaryPanel';
 
 interface Props {
   frames: Frame[];
@@ -7,6 +8,7 @@ interface Props {
   selectedFrame: Frame | null;
   onSelectFrame: (frame: Frame) => void;
   loading: boolean;
+  highlightRange?: SummaryTimeRange | null;
 }
 
 const META_CATEGORIES: Record<string, string[]> = {
@@ -36,7 +38,7 @@ function activityColor(activity: string): string {
   return META_COLORS.other;
 }
 
-export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading }: Props) {
+export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading, highlightRange }: Props) {
   const selectedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -87,17 +89,21 @@ export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading
             {hourFrames.map((frame) => {
               const isSelected = selectedFrame?.id === frame.id;
               const hasEvent = eventsByFrame.has(frame.id);
+              const isHighlighted = highlightRange
+                ? frame.timestamp >= highlightRange.from && frame.timestamp <= highlightRange.to
+                : false;
               const size = 8 + Math.min(frame.motion_score * 200, 20);
 
               return (
                 <div
                   key={frame.id}
                   ref={isSelected ? selectedRef : undefined}
-                  className={`timeline-dot${isSelected ? ' selected' : ''}${hasEvent ? ' has-event' : ''}`}
+                  className={`timeline-dot${isSelected ? ' selected' : ''}${hasEvent ? ' has-event' : ''}${isHighlighted ? ' highlighted' : ''}`}
                   style={{
                     width: size,
                     height: size,
                     backgroundColor: activityColor(frame.activity),
+                    opacity: highlightRange && !isHighlighted ? 0.25 : undefined,
                   }}
                   onClick={() => onSelectFrame(frame)}
                   title={`${new Date(frame.timestamp).toLocaleTimeString('ja-JP')} - ${frame.claude_description || frame.scene_type}`}

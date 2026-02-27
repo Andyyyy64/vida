@@ -12,6 +12,7 @@ import { useEvents } from './hooks/useEvents';
 import { api } from './lib/api';
 import { formatDate, todayStr } from './lib/date';
 import type { Frame, DayStats } from './lib/types';
+import type { SummaryTimeRange } from './components/SummaryPanel';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -29,6 +30,7 @@ export default function App() {
   const [stats, setStats] = useState<DayStats | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [highlightRange, setHighlightRange] = useState<SummaryTimeRange | null>(null);
   const [mobilePanel, setMobilePanel] = useState<'timeline' | 'left' | 'detail'>('timeline');
   const isMobile = useIsMobile();
 
@@ -161,9 +163,18 @@ export default function App() {
             />
             <SummaryPanel
               summaries={summaries}
-              onTimeClick={(ts) => {
-                const frame = frames.find((f) => f.timestamp >= ts);
-                if (frame) handleSelectFrame(frame);
+              highlightRange={highlightRange}
+              onSummaryClick={(range) => {
+                // Toggle highlight: click again to deselect
+                const isSame = highlightRange?.from === range.from && highlightRange?.to === range.to;
+                if (isSame) {
+                  setHighlightRange(null);
+                } else {
+                  setHighlightRange(range);
+                  // Jump to first frame in range
+                  const frame = frames.find((f) => f.timestamp >= range.from && f.timestamp <= range.to);
+                  if (frame) handleSelectFrame(frame);
+                }
               }}
             />
           </div>
@@ -175,6 +186,7 @@ export default function App() {
             selectedFrame={selectedFrame}
             onSelectFrame={handleSelectFrame}
             loading={framesLoading}
+            highlightRange={highlightRange}
           />
         )}
         {showDetail && (

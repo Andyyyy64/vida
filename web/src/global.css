@@ -292,21 +292,52 @@ pre {
   margin-bottom: 2px;
 }
 
+.summary-item--active {
+  background: rgba(96, 168, 96, 0.12);
+  border-left: 3px solid #60a860;
+}
+
 .summary-item-content {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-primary);
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.summary-item-content--expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.summary-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
 }
 
 .summary-item-meta {
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: var(--space-xs);
   font-family: var(--font-mono);
+}
+
+.summary-expand-btn {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.summary-expand-btn:hover {
+  color: var(--text-primary);
 }
 
 /* ── Timeline ── */
@@ -377,6 +408,11 @@ pre {
 .timeline-dot.has-event {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.timeline-dot.highlighted {
+  box-shadow: 0 0 0 2px #60a860, 0 0 8px rgba(96, 168, 96, 0.5);
+  transform: scale(1.3);
 }
 
 /* ── Detail Panel ── */
