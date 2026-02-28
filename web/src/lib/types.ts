@@ -94,6 +94,12 @@ export interface Report {
   focus_pct: number;
 }
 
+export interface Memo {
+  date: string;
+  content: string;
+  updated_at: string | null;
+}
+
 export interface RangeDay {
   date: string;
   frameCount: number;

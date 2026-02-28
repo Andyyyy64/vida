@@ -141,6 +141,14 @@ class Database:
             );
         """)
         self._seed_activity_mappings()
+        # Memos table
+        self._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS memos (
+                date TEXT PRIMARY KEY,
+                content TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+        """)
         # FTS tables — recreate if schema changed (e.g. new columns added)
         self._ensure_fts()
         self._rebuild_fts_if_needed()
@@ -255,6 +263,24 @@ class Database:
             "frame_count = frame_count + 1, "
             "meta_category = CASE WHEN excluded.meta_category != 'other' THEN excluded.meta_category ELSE activity_mappings.meta_category END",
             (activity, meta_category),
+        )
+        self._conn.commit()
+
+    # --- Memos ---
+
+    def get_memo(self, d: date) -> str:
+        """Get memo content for a given date. Returns empty string if none."""
+        row = self._conn.execute(
+            "SELECT content FROM memos WHERE date=?", (d.isoformat(),),
+        ).fetchone()
+        return row["content"] if row else ""
+
+    def upsert_memo(self, d: date, content: str):
+        """Insert or update memo for a given date."""
+        self._conn.execute(
+            "INSERT INTO memos (date, content, updated_at) VALUES (?, ?, datetime('now')) "
+            "ON CONFLICT(date) DO UPDATE SET content=excluded.content, updated_at=datetime('now')",
+            (d.isoformat(), content),
         )
         self._conn.commit()
 

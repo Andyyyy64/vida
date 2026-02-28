@@ -93,9 +93,16 @@ class ReportGenerator:
                 f"ユーザー背景情報:\n---\n{self._context}\n---\n\n"
             )
 
+        # Memo for the target date
+        memo_section = ""
+        memo_content = self._db.get_memo(target_date)
+        if memo_content:
+            memo_section = f"## ユーザーメモ\n「{memo_content}」\n\n"
+
         prompt = (
             f"{context_prefix}"
             f"以下は {target_date.isoformat()} の1日の記録です。\n\n"
+            f"{memo_section}"
             f"## アクティビティ内訳\n{activity_summary}\n\n"
             f"## 時系列サマリー\n{summary_text}\n\n"
         )

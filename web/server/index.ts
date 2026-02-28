@@ -13,6 +13,7 @@ import searchRoutes from './routes/search.js';
 import activitiesRoutes from './routes/activities.js';
 import sessionsRoutes from './routes/sessions.js';
 import reportsRoutes from './routes/reports.js';
+import memosRoutes from './routes/memos.js';
 
 const app = new Hono();
 
@@ -26,6 +27,7 @@ app.route('/api/search', searchRoutes);
 app.route('/api/activities', activitiesRoutes);
 app.route('/api/sessions', sessionsRoutes);
 app.route('/api/reports', reportsRoutes);
+app.route('/api/memos', memosRoutes);
 
 // Media files from data directory
 app.get('/media/*', (c) => {

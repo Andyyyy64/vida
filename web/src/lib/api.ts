@@ -1,9 +1,19 @@
-import type { Frame, Event, Summary, DayStats, ActivityStats, SearchResults, Session, ActivityInfo, RangeStats, Report, AppStat } from './types';
+import type { Frame, Event, Summary, DayStats, ActivityStats, SearchResults, Session, ActivityInfo, RangeStats, Report, AppStat, Memo } from './types';
 
 const BASE = '/api';
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(`${BASE}${url}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+async function putJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${url}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
@@ -35,6 +45,10 @@ export const api = {
   },
   activities: {
     list: () => fetchJson<ActivityInfo[]>('/activities'),
+  },
+  memos: {
+    get: (date: string) => fetchJson<Memo>(`/memos?date=${date}`),
+    put: (date: string, content: string) => putJson<{ ok: boolean }>('/memos', { date, content }),
   },
   search: (q: string, from?: string, to?: string) => {
     const params = new URLSearchParams({ q });

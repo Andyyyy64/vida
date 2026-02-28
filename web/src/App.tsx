@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { SummaryPanel } from './components/SummaryPanel';
 import { SearchPanel } from './components/SearchPanel';
+import { MemoPanel } from './components/MemoPanel';
 import { Dashboard } from './components/Dashboard';
 import { Timeline } from './components/Timeline';
 import { DetailPanel } from './components/DetailPanel';
@@ -9,6 +10,7 @@ import { ActivityHeatmap } from './components/ActivityHeatmap';
 import { useFrames } from './hooks/useFrames';
 import { useSummaries } from './hooks/useSummaries';
 import { useEvents } from './hooks/useEvents';
+import { useDailyMemo } from './hooks/useDailyMemo';
 import { api } from './lib/api';
 import { loadActivityMappings } from './lib/activity';
 import { formatDate, todayStr } from './lib/date';
@@ -38,6 +40,7 @@ export default function App() {
   const { frames, loading: framesLoading } = useFrames(date);
   const { summaries } = useSummaries(date);
   const { events } = useEvents(date);
+  const memo = useDailyMemo(date);
 
   const fetchStats = useCallback(() => {
     api.stats.get(date).then(setStats).catch(console.error);
@@ -162,6 +165,12 @@ export default function App() {
             <SearchPanel
               onSelectFrame={handleSelectFrame}
               onDateChange={setDate}
+            />
+            <MemoPanel
+              content={memo.content}
+              onChange={memo.updateContent}
+              saving={memo.saving}
+              readonly={memo.readonly}
             />
             <SummaryPanel
               summaries={summaries}

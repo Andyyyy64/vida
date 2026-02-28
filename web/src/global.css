@@ -925,6 +925,38 @@ pre {
   overflow: hidden;
 }
 
+/* ── Memo Panel ── */
+
+.memo-panel {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.memo-textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 120px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-surface);
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+
+.memo-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.memo-status {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
 /* ── Left Panel Tabs ── */
 
 .left-panel {

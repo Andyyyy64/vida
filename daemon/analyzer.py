@@ -5,6 +5,8 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from datetime import date as date_type
+
 from daemon.activity import ActivityManager
 from daemon.llm.base import LLMProvider
 from daemon.storage.database import Database
@@ -84,6 +86,15 @@ class FrameAnalyzer:
                 "あなたは継続的なライフログ記録システムです。以下はユーザーの背景情報です:\n"
                 f"---\n{context}\n---\n"
                 "この情報を踏まえて、人物を名前で呼び、継続的な観察として記述してください。\n"
+            )
+
+        # Inject today's memo if available
+        today_memo = self._db.get_memo(date_type.today())
+        if today_memo:
+            parts.append(
+                "【今日のメモ】ユーザーが記入した本日のメモ:\n"
+                f"「{today_memo}」\n"
+                "※参考情報として活用してください。\n"
             )
 
         # Recent context: pass last few frame analyses for continuity
@@ -283,13 +294,21 @@ class SummaryGenerator:
         self._context = _load_context(data_dir)
 
     def _context_prefix(self) -> str:
-        if not self._context:
-            return ""
-        return (
-            "あなたは継続的なライフログ記録システムです。以下はユーザーの背景情報です:\n"
-            f"---\n{self._context}\n---\n"
-            "人物を名前で呼び、継続的な観察として記述してください。\n\n"
-        )
+        parts: list[str] = []
+        if self._context:
+            parts.append(
+                "あなたは継続的なライフログ記録システムです。以下はユーザーの背景情報です:\n"
+                f"---\n{self._context}\n---\n"
+                "人物を名前で呼び、継続的な観察として記述してください。\n"
+            )
+        today_memo = self._db.get_memo(date_type.today())
+        if today_memo:
+            parts.append(
+                "【今日のメモ】ユーザーが記入した本日のメモ:\n"
+                f"「{today_memo}」\n"
+                "※参考情報として活用してください。\n"
+            )
+        return "\n".join(parts) + ("\n" if parts else "")
 
     def _time_context(self, now: datetime, subs_or_frames: list) -> str:
         if not subs_or_frames:
