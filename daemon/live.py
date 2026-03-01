@@ -18,22 +18,25 @@ class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 class LiveServer:
     """MJPEG streaming server for live webcam feed.
 
-    Uses threading.Event for efficient frame delivery — clients wake up
-    immediately on new frames instead of polling with sleep().
-    ThreadingMixIn allows multiple browser tabs/clients simultaneously.
+    Supports two streams:
+      /stream      — original camera feed
+      /stream/pose — camera feed with pose skeleton overlay
     """
 
     def __init__(self, port: int = 3002):
         self._port = port
         self._latest_jpeg: bytes | None = None
+        self._latest_jpeg_pose: bytes | None = None
         self._lock = threading.Lock()
         self._event = threading.Event()
         self._running = False
         self._httpd: _ThreadedHTTPServer | None = None
 
-    def update_frame(self, jpeg_bytes: bytes) -> None:
+    def update_frame(self, jpeg_bytes: bytes, jpeg_pose_bytes: bytes | None = None) -> None:
         with self._lock:
             self._latest_jpeg = jpeg_bytes
+            if jpeg_pose_bytes is not None:
+                self._latest_jpeg_pose = jpeg_pose_bytes
         # Wake all waiting clients instantly
         self._event.set()
         self._event.clear()
@@ -55,7 +58,11 @@ class LiveServer:
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                if self.path != "/stream":
+                if self.path == "/stream":
+                    use_pose = False
+                elif self.path == "/stream/pose":
+                    use_pose = True
+                else:
                     self.send_error(404)
                     return
 
@@ -73,7 +80,10 @@ class LiveServer:
                         # Wait for a new frame (up to 1s timeout to check _running)
                         server._event.wait(timeout=1.0)
                         with server._lock:
-                            jpeg = server._latest_jpeg
+                            if use_pose and server._latest_jpeg_pose:
+                                jpeg = server._latest_jpeg_pose
+                            else:
+                                jpeg = server._latest_jpeg
                             frame_id = id(jpeg)
                         if jpeg and frame_id != last_id:
                             last_id = frame_id
