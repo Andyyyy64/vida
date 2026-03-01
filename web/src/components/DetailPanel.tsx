@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Frame } from '../lib/types';
 import { activityColor } from '../lib/activity';
+import { AudioPlayer } from './AudioPlayer';
 
 interface Props {
   frame: Frame | null;
@@ -80,12 +81,7 @@ export function DetailPanel({ frame }: Props) {
       {/* 音声 */}
       {frame.audio_path && (
         <DetailSection title="音声">
-          <audio controls className="audio-player" preload="none">
-            <source src={`/media/${frame.audio_path}`} type="audio/wav" />
-          </audio>
-          {frame.transcription && (
-            <div className="transcription">「{frame.transcription}」</div>
-          )}
+          <AudioPlayer audioPath={frame.audio_path} transcription={frame.transcription} />
         </DetailSection>
       )}
 

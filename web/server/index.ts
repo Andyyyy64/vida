@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, createReadStream } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { DATA_DIR } from './db.js';
 import framesRoutes from './routes/frames.js';
@@ -63,7 +63,6 @@ app.get('/media/*', (c) => {
     return c.json({ error: 'not found' }, 404);
   }
 
-  const data = readFileSync(fullPath);
   const ext = reqPath.split('.').pop()?.toLowerCase();
   const contentTypes: Record<string, string> = {
     jpg: 'image/jpeg',
@@ -71,10 +70,45 @@ app.get('/media/*', (c) => {
     png: 'image/png',
     wav: 'audio/wav',
   };
+  const contentType = contentTypes[ext || ''] || 'application/octet-stream';
+  const fileSize = statSync(fullPath).size;
 
+  // Support Range requests for audio/video seeking
+  const range = c.req.header('Range');
+  if (range) {
+    const match = range.match(/bytes=(\d+)-(\d*)/);
+    if (match) {
+      const start = parseInt(match[1], 10);
+      const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+      const stream = createReadStream(fullPath, { start, end });
+      const readable = new ReadableStream({
+        start(controller) {
+          stream.on('data', (chunk: Buffer) => controller.enqueue(chunk));
+          stream.on('end', () => controller.close());
+          stream.on('error', (err) => controller.error(err));
+        },
+        cancel() { stream.destroy(); },
+      });
+      return new Response(readable, {
+        status: 206,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Content-Length': String(chunkSize),
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
+    }
+  }
+
+  const data = readFileSync(fullPath);
   return new Response(data, {
     headers: {
-      'Content-Type': contentTypes[ext || ''] || 'application/octet-stream',
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': String(fileSize),
       'Cache-Control': 'public, max-age=86400',
     },
   });
