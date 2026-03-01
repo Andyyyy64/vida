@@ -110,7 +110,7 @@ class WindowMonitor:
             errors="replace",
         )
 
-        conn = sqlite3.connect(str(self._db_path))
+        conn = sqlite3.connect(str(self._db_path), timeout=10)
         conn.execute("PRAGMA journal_mode=WAL")
         try:
             for line in self._process.stdout:  # type: ignore[union-attr]

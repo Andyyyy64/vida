@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -79,6 +80,12 @@ class Config:
 
     @classmethod
     def load(cls, path: Path | None = None) -> Config:
+        # Load .env file (secrets like API keys and tokens)
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
         path = path or DEFAULT_CONFIG_PATH
         if not path.exists():
             return cls()
@@ -129,4 +136,15 @@ class Config:
                     cfg.chat.discord.poll_interval = int(d["poll_interval"])
                 if "backfill_months" in d:
                     cfg.chat.discord.backfill_months = int(d["backfill_months"])
+        # Secrets: env vars override TOML (keep secrets out of life.toml)
+        cfg._load_env_secrets()
         return cfg
+
+    def _load_env_secrets(self) -> None:
+        """Load secrets from environment variables (.env). Env vars take priority over TOML."""
+        if v := os.environ.get("DISCORD_USER_TOKEN"):
+            self.chat.discord.user_token = v
+        if v := os.environ.get("DISCORD_USER_ID"):
+            self.chat.discord.user_id = v
+        if v := os.environ.get("NOTIFY_WEBHOOK_URL"):
+            self.notify.webhook_url = v

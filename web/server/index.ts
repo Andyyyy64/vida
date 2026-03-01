@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 import { DATA_DIR } from './db.js';
 import framesRoutes from './routes/frames.js';
 import summariesRoutes from './routes/summaries.js';
@@ -14,6 +14,7 @@ import activitiesRoutes from './routes/activities.js';
 import sessionsRoutes from './routes/sessions.js';
 import reportsRoutes from './routes/reports.js';
 import memosRoutes from './routes/memos.js';
+import chatRoutes from './routes/chat.js';
 
 const app = new Hono();
 
@@ -28,6 +29,21 @@ app.route('/api/activities', activitiesRoutes);
 app.route('/api/sessions', sessionsRoutes);
 app.route('/api/reports', reportsRoutes);
 app.route('/api/memos', memosRoutes);
+app.route('/api/chat', chatRoutes);
+
+// Daemon status (read from data/status.json)
+app.get('/api/status', (c) => {
+  const statusPath = join(DATA_DIR, 'status.json');
+  if (!existsSync(statusPath)) {
+    return c.json({ running: false, camera: false });
+  }
+  try {
+    const data = JSON.parse(readFileSync(statusPath, 'utf-8'));
+    return c.json(data);
+  } catch {
+    return c.json({ running: false, camera: false });
+  }
+});
 
 // Media files from data directory
 app.get('/media/*', (c) => {

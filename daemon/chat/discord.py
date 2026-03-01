@@ -27,6 +27,9 @@ TEXT_CHANNEL_TYPES = {0, 5, 10, 11, 12}
 class DiscordSource(ChatSource):
     """Collects messages from Discord servers and DMs using a user token.
 
+    - DMs: collects all messages (both sides of conversation)
+    - Guilds: collects only the user's own messages via search API
+
     On first run, backfills historical messages (configurable months).
     Then polls every poll_interval seconds for new messages.
     """
@@ -40,6 +43,8 @@ class DiscordSource(ChatSource):
         self._last_ids: dict[str, str] = {}
         # guild_id -> guild_name cache
         self._guild_names: dict[str, str] = {}
+        # channel_id -> channel_name cache
+        self._channel_names: dict[str, str] = {}
 
     @property
     def platform(self) -> str:
@@ -69,14 +74,37 @@ class DiscordSource(ChatSource):
 
     def _run(self) -> None:
         """Main loop: backfill once, then poll."""
-        conn = sqlite3.connect(str(self._db_path))
+        conn = sqlite3.connect(str(self._db_path), timeout=10)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.row_factory = sqlite3.Row
+
+        # Ensure chat_messages table exists (may run before Database migration)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform TEXT NOT NULL,
+                platform_message_id TEXT NOT NULL,
+                channel_id TEXT NOT NULL,
+                channel_name TEXT DEFAULT '',
+                guild_id TEXT DEFAULT '',
+                guild_name TEXT DEFAULT '',
+                author_id TEXT NOT NULL,
+                author_name TEXT DEFAULT '',
+                is_self BOOLEAN DEFAULT 0,
+                content TEXT DEFAULT '',
+                timestamp TEXT NOT NULL,
+                metadata TEXT DEFAULT '',
+                UNIQUE(platform, platform_message_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_platform ON chat_messages(platform);
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_channel ON chat_messages(platform, channel_id);
+        """)
 
         self._load_last_ids(conn)
         log.info("Loaded %d channel positions from DB", len(self._last_ids))
 
-        # One-time historical backfill for channels not yet tracked
+        # One-time historical backfill
         self._backfill(conn)
 
         while self._running:
@@ -94,72 +122,154 @@ class DiscordSource(ChatSource):
     def _load_last_ids(self, conn: sqlite3.Connection) -> None:
         """Load last known message ID per channel from DB."""
         rows = conn.execute(
-            "SELECT channel_id, platform_message_id FROM chat_messages "
-            "WHERE platform='discord' AND id IN ("
-            "  SELECT MAX(id) FROM chat_messages WHERE platform='discord' GROUP BY channel_id"
-            ")"
+            "SELECT channel_id, MAX(CAST(platform_message_id AS INTEGER)) AS last_mid "
+            "FROM chat_messages WHERE platform='discord' GROUP BY channel_id"
         ).fetchall()
-        self._last_ids = {r["channel_id"]: r["platform_message_id"] for r in rows}
+        self._last_ids = {r["channel_id"]: str(r["last_mid"]) for r in rows}
 
     # --- Backfill ---
 
     def _backfill(self, conn: sqlite3.Connection) -> None:
-        """Backfill historical messages for channels not yet in DB."""
+        """Backfill historical messages.
+
+        - DMs: all messages (both sides of conversation)
+        - Guilds: own messages only via search API (fast)
+        """
         if self._config.backfill_months <= 0:
             return
 
         cutoff = datetime.now() - timedelta(days=self._config.backfill_months * 30)
-        channels = self._collect_channels()
-        # Only backfill channels we haven't seen before
-        to_backfill = [(c, n, g, gn) for c, n, g, gn in channels if c not in self._last_ids]
 
-        if not to_backfill:
-            log.info("Backfill: all %d channels already tracked", len(channels))
+        self._backfill_dms(conn, cutoff)
+        self._backfill_guilds(conn, cutoff)
+
+    def _backfill_dms(self, conn: sqlite3.Connection, cutoff: datetime) -> None:
+        """Backfill DM channels — all messages from both sides."""
+        dm_channels = self._api_get("/users/@me/channels")
+        if not dm_channels:
             return
 
-        log.info(
-            "Backfilling %d/%d channels (cutoff: %s, %d months)",
-            len(to_backfill), len(channels),
-            cutoff.strftime("%Y-%m-%d"), self._config.backfill_months,
-        )
+        to_backfill = []
+        for ch in dm_channels:
+            ch_id = ch["id"]
+            if ch_id not in self._last_ids:
+                to_backfill.append((ch_id, self._resolve_dm_name(ch)))
+
+        if not to_backfill:
+            log.info("DM backfill: all %d channels already tracked", len(dm_channels))
+            return
+
+        log.info("Backfilling %d/%d DM channels (cutoff: %s)",
+                 len(to_backfill), len(dm_channels), cutoff.strftime("%Y-%m-%d"))
 
         total = 0
-        for ch_id, ch_name, g_id, g_name in to_backfill:
+        for ch_id, ch_name in to_backfill:
             if not self._running:
                 break
-            n = self._backfill_channel(conn, ch_id, ch_name, g_id, g_name, cutoff)
+            n = self._backfill_channel(conn, ch_id, ch_name, "", "", cutoff)
             total += n
 
-        log.info("Backfill complete: %d messages from %d channels", total, len(to_backfill))
+        log.info("DM backfill complete: %d messages from %d channels", total, len(to_backfill))
 
-    def _collect_channels(self) -> list[tuple[str, str, str, str]]:
-        """Collect all accessible channels (DMs + guilds).
-
-        Returns list of (channel_id, channel_name, guild_id, guild_name).
-        """
-        channels: list[tuple[str, str, str, str]] = []
-
-        dm_channels = self._api_get("/users/@me/channels")
-        if dm_channels:
-            for ch in dm_channels:
-                ch_name = self._resolve_dm_name(ch)
-                channels.append((ch["id"], ch_name, "", ""))
-
+    def _backfill_guilds(self, conn: sqlite3.Connection, cutoff: datetime) -> None:
+        """Backfill guilds — own messages only via Discord search API."""
         guilds = self._api_get("/users/@me/guilds")
-        if guilds:
-            for g in guilds:
-                g_id = g["id"]
-                g_name = g.get("name", "")
-                self._guild_names[g_id] = g_name
-                guild_channels = self._api_get(f"/guilds/{g_id}/channels")
-                if not guild_channels:
-                    continue
-                for ch in guild_channels:
-                    if ch.get("type") not in TEXT_CHANNEL_TYPES:
-                        continue
-                    channels.append((ch["id"], ch.get("name", ""), g_id, g_name))
+        if not guilds:
+            return
 
-        return channels
+        # Guilds we already have self messages from
+        existing_guilds = {r[0] for r in conn.execute(
+            "SELECT DISTINCT guild_id FROM chat_messages "
+            "WHERE platform='discord' AND guild_id != '' AND is_self=1"
+        ).fetchall()}
+
+        to_backfill: list[tuple[str, str]] = []
+        for g in guilds:
+            g_id = g["id"]
+            g_name = g.get("name", "")
+            self._guild_names[g_id] = g_name
+
+            # Cache channel names + initialize _last_ids for polling
+            channels = self._api_get(f"/guilds/{g_id}/channels")
+            if channels:
+                for ch in channels:
+                    if ch.get("type") in TEXT_CHANNEL_TYPES:
+                        self._channel_names[ch["id"]] = ch.get("name", "")
+                        # Set _last_ids so polling starts from "now"
+                        if ch["id"] not in self._last_ids and ch.get("last_message_id"):
+                            self._last_ids[ch["id"]] = ch["last_message_id"]
+
+            if g_id not in existing_guilds:
+                to_backfill.append((g_id, g_name))
+
+        if not to_backfill:
+            log.info("Guild backfill: all %d guilds already tracked", len(guilds))
+            return
+
+        log.info("Backfilling %d/%d guilds via search API (cutoff: %s)",
+                 len(to_backfill), len(guilds), cutoff.strftime("%Y-%m-%d"))
+
+        total = 0
+        for g_id, g_name in to_backfill:
+            if not self._running:
+                break
+            n = self._backfill_guild_search(conn, g_id, g_name, cutoff)
+            total += n
+
+        log.info("Guild backfill complete: %d messages from %d guilds", total, len(to_backfill))
+
+    def _backfill_guild_search(
+        self, conn: sqlite3.Connection,
+        guild_id: str, guild_name: str,
+        cutoff: datetime,
+    ) -> int:
+        """Use Discord search API to fetch only own messages from a guild."""
+        offset = 0
+        total = 0
+
+        while self._running:
+            result = self._api_get(
+                f"/guilds/{guild_id}/messages/search"
+                f"?author_id={self._config.user_id}"
+                f"&sort_by=timestamp&sort_order=desc"
+                f"&offset={offset}"
+            )
+            if not result or not isinstance(result, dict):
+                break
+
+            groups = result.get("messages", [])
+            if not groups:
+                break
+
+            reached_cutoff = False
+            for group in groups:
+                if not group:
+                    continue
+                # First element in each group is the matched (user's) message
+                msg = group[0]
+                ts = self._parse_timestamp(msg["timestamp"])
+                if ts < cutoff:
+                    reached_cutoff = True
+                    break
+
+                ch_id = msg.get("channel_id", "")
+                ch_name = self._channel_names.get(ch_id, "")
+                n = self._store_message(conn, msg, ch_id, ch_name, guild_id, guild_name)
+                total += n
+
+            conn.commit()
+            offset += len(groups)
+
+            total_results = result.get("total_results", 0)
+            if reached_cutoff or offset >= total_results:
+                break
+
+            time.sleep(1)
+
+        if total > 0:
+            log.info("Backfill %s: %d messages (search)", guild_name, total)
+
+        return total
 
     def _backfill_channel(
         self, conn: sqlite3.Connection,
@@ -167,7 +277,10 @@ class DiscordSource(ChatSource):
         guild_id: str, guild_name: str,
         cutoff: datetime,
     ) -> int:
-        """Paginate backwards through a channel's history until cutoff. Returns count."""
+        """Paginate backwards through a channel's history until cutoff. Returns count.
+
+        Used for DM channels where we want all messages.
+        """
         before_id: str | None = None
         total = 0
         newest_id: str | None = None
@@ -218,10 +331,10 @@ class DiscordSource(ChatSource):
     # --- Polling ---
 
     def _poll_once(self, conn: sqlite3.Connection) -> None:
-        """Run one poll cycle: DMs then guilds."""
+        """Run one poll cycle: DMs (all messages) then guilds (self only)."""
         count = 0
 
-        # 1. DM channels
+        # 1. DM channels — all messages
         dm_channels = self._api_get("/users/@me/channels")
         if dm_channels:
             for ch in dm_channels:
@@ -236,7 +349,7 @@ class DiscordSource(ChatSource):
                 n = self._fetch_new_messages(conn, ch_id, ch_name, "", "")
                 count += n
 
-        # 2. Guild channels
+        # 2. Guild channels — self messages only
         guilds = self._api_get("/users/@me/guilds")
         if guilds:
             for g in guilds:
@@ -257,7 +370,10 @@ class DiscordSource(ChatSource):
                     if local_last and self._id_cmp(remote_last, local_last) <= 0:
                         continue
                     ch_name = ch.get("name", "")
-                    n = self._fetch_new_messages(conn, ch_id, ch_name, g_id, g_name)
+                    self._channel_names[ch_id] = ch_name
+                    n = self._fetch_new_messages(
+                        conn, ch_id, ch_name, g_id, g_name, self_only=True,
+                    )
                     count += n
 
         if count > 0:
@@ -267,8 +383,9 @@ class DiscordSource(ChatSource):
         self, conn: sqlite3.Connection,
         channel_id: str, channel_name: str,
         guild_id: str, guild_name: str,
+        self_only: bool = False,
     ) -> int:
-        """Fetch messages newer than last known ID. Returns count."""
+        """Fetch messages newer than last known ID. Returns count stored."""
         last_id = self._last_ids.get(channel_id)
         params = "limit=100"
         if last_id:
@@ -281,9 +398,12 @@ class DiscordSource(ChatSource):
         count = 0
         # Discord returns newest first, reverse for chronological insert
         for msg in reversed(messages):
+            # Always advance position (even for skipped messages)
+            self._last_ids[channel_id] = msg["id"]
+            if self_only and msg.get("author", {}).get("id") != self._config.user_id:
+                continue
             n = self._store_message(conn, msg, channel_id, channel_name, guild_id, guild_name)
             count += n
-            self._last_ids[channel_id] = msg["id"]
 
         if count > 0:
             conn.commit()
@@ -334,13 +454,13 @@ class DiscordSource(ChatSource):
         except sqlite3.IntegrityError:
             return 0  # duplicate
 
-    def _api_get(self, path: str) -> list | dict | None:
+    def _api_get(self, path: str, _retries: int = 3) -> list | dict | None:
         """Make a GET request to Discord API. Returns parsed JSON or None on error."""
         url = f"{API_BASE}{path}"
         req = urllib.request.Request(url, headers={
             "Authorization": self._config.user_token,
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         })
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
@@ -354,6 +474,8 @@ class DiscordSource(ChatSource):
                     retry_after = 5
                 log.warning("Discord rate limited, sleeping %.1fs", retry_after)
                 time.sleep(retry_after)
+                if _retries > 0:
+                    return self._api_get(path, _retries - 1)
                 return None
             elif e.code == 403:
                 return None

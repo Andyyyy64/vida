@@ -108,6 +108,24 @@ export interface RangeDay {
   metaCategories: Record<string, number>;
 }
 
+export interface ChatMessage {
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatChannel {
+  guild_id: string;
+  guild_name: string;
+  channel_id: string;
+  channel_name: string;
+  messages: ChatMessage[];
+}
+
+export interface ChatData {
+  total: number;
+  channels: ChatChannel[];
+}
+
 export interface RangeStats {
   from: string;
   to: string;

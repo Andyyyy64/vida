@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { SummaryPanel } from './components/SummaryPanel';
 import { SearchPanel } from './components/SearchPanel';
 import { MemoPanel } from './components/MemoPanel';
+import { ChatModal } from './components/ChatPanel';
 import { Dashboard } from './components/Dashboard';
 import { Timeline } from './components/Timeline';
 import { DetailPanel } from './components/DetailPanel';
@@ -33,8 +34,10 @@ export default function App() {
   const [stats, setStats] = useState<DayStats | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [highlightRange, setHighlightRange] = useState<SummaryTimeRange | null>(null);
   const [mobilePanel, setMobilePanel] = useState<'timeline' | 'left' | 'detail'>('timeline');
+  const [warnings, setWarnings] = useState<string[]>([]);
   const isMobile = useIsMobile();
 
   const { frames, loading: framesLoading } = useFrames(date);
@@ -49,6 +52,13 @@ export default function App() {
   useEffect(() => {
     loadActivityMappings().catch(console.error);
     api.stats.dates().then(setAvailableDates).catch(console.error);
+    api.status().then((s) => {
+      const w: string[] = [];
+      if (!s.camera) w.push('Camera not available — running without webcam capture');
+      setWarnings(w);
+    }).catch(() => {
+      setWarnings(['Daemon is not running']);
+    });
   }, []);
 
   useEffect(() => {
@@ -91,7 +101,7 @@ export default function App() {
         setSelectedFrame(frames[idx + 1]);
       }
     },
-    [selectedFrame, frames, showDashboard],
+    [selectedFrame, frames, showDashboard, showChat],
   );
 
   useEffect(() => {
@@ -102,7 +112,7 @@ export default function App() {
   // Scroll navigation: scroll down = next frame, scroll up = previous
   const handleWheel = useCallback(
     (e: WheelEvent) => {
-      if (showDashboard) return;
+      if (showDashboard || showChat) return;
       if (!selectedFrame || frames.length === 0) return;
       // Ignore if scrolling inside a scrollable element
       const target = e.target as HTMLElement;
@@ -116,7 +126,7 @@ export default function App() {
         setSelectedFrame(frames[idx - 1]);
       }
     },
-    [selectedFrame, frames, showDashboard],
+    [selectedFrame, frames, showDashboard, showChat],
   );
 
   useEffect(() => {
@@ -130,12 +140,18 @@ export default function App() {
 
   return (
     <div className="app">
+      {warnings.length > 0 && (
+        <div className="warning-banner">
+          {warnings.map((w, i) => <span key={i}>{w}</span>)}
+        </div>
+      )}
       <Header
         date={date}
         onDateChange={setDate}
         availableDates={availableDates}
         frameCount={stats?.frames ?? 0}
         onDashboardClick={() => setShowDashboard(true)}
+        onChatClick={() => setShowChat(true)}
       />
       {isMobile && (
         <div className="mobile-nav">
@@ -206,6 +222,7 @@ export default function App() {
       </div>
       {stats && <ActivityHeatmap activity={stats.activity} />}
       {showDashboard && <Dashboard date={date} onClose={() => setShowDashboard(false)} />}
+      {showChat && <ChatModal date={date} onClose={() => setShowChat(false)} />}
     </div>
   );
 }

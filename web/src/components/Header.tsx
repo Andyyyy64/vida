@@ -7,6 +7,7 @@ interface Props {
   availableDates: string[];
   frameCount: number;
   onDashboardClick: () => void;
+  onChatClick: () => void;
 }
 
 function useClock() {
@@ -18,7 +19,7 @@ function useClock() {
   return now;
 }
 
-export function Header({ date, onDateChange, availableDates, frameCount, onDashboardClick }: Props) {
+export function Header({ date, onDateChange, availableDates, frameCount, onDashboardClick, onChatClick }: Props) {
   const now = useClock();
 
   return (
@@ -26,6 +27,9 @@ export function Header({ date, onDateChange, availableDates, frameCount, onDashb
       <div className="header-left">
         <h1 className="header-title">homelife.ai</h1>
         <span className="header-count">{frameCount} frames</span>
+        <button className="dashboard-btn" onClick={onChatClick}>
+          Chat
+        </button>
         <button className="dashboard-btn" onClick={onDashboardClick}>
           Dashboard
         </button>

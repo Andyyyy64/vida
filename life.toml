@@ -1,3 +1,11 @@
 [llm]
 provider = "gemini"
 gemini_model = "gemini-2.5-flash"
+
+[chat]
+enabled = true
+
+[chat.discord]
+enabled = true
+poll_interval = 60
+backfill_months = 1

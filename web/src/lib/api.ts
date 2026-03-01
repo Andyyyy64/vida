@@ -1,4 +1,4 @@
-import type { Frame, Event, Summary, DayStats, ActivityStats, SearchResults, Session, ActivityInfo, RangeStats, Report, AppStat, Memo } from './types';
+import type { Frame, Event, Summary, DayStats, ActivityStats, SearchResults, Session, ActivityInfo, RangeStats, Report, AppStat, Memo, ChatData } from './types';
 
 const BASE = '/api';
 
@@ -50,6 +50,8 @@ export const api = {
     get: (date: string) => fetchJson<Memo>(`/memos?date=${date}`),
     put: (date: string, content: string) => putJson<{ ok: boolean }>('/memos', { date, content }),
   },
+  chat: (date: string) => fetchJson<ChatData>(`/chat?date=${date}`),
+  status: () => fetchJson<{ running: boolean; camera: boolean }>('/status'),
   search: (q: string, from?: string, to?: string) => {
     const params = new URLSearchParams({ q });
     if (from) params.set('from', from);
