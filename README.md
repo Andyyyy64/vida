@@ -178,20 +178,21 @@ See **[getting-started.md](getting-started.md)** for full platform-specific inst
 
 | Platform | Guide |
 |---|---|
+| Windows (Native) | [getting-started.md#windows-native](getting-started.md#windows-native) |
 | Windows (WSL2) | [getting-started.md#windows-wsl2](getting-started.md#windows-wsl2) |
 | Mac | [getting-started.md#mac](getting-started.md#mac) |
 
 ### Requirements
 
-| | Windows (WSL2) | Mac |
-|---|---|---|
-| Python | 3.12+ (in WSL2) | 3.12+ |
-| Node.js | 22+ (in WSL2) | 22+ |
-| Camera | External USB via usbipd passthrough | Built-in |
-| Microphone | External USB via usbipd passthrough | Built-in |
-| Screen capture | PowerShell + Windows Forms | `screencapture` (built-in) |
-| Window tracking | PowerShell + Win32 API | `osascript` (built-in) |
-| Gemini API key | Required | Required |
+| | Windows (Native) | Windows (WSL2) | Mac |
+|---|---|---|---|
+| Python | 3.12+ (Windows) | 3.12+ (in WSL2) | 3.12+ |
+| Node.js | 22+ (Windows) | 22+ (in WSL2) | 22+ |
+| Camera | Built-in / USB (DirectShow) | External USB via usbipd | Built-in |
+| Microphone | Built-in / USB (WASAPI) | External USB via usbipd | Built-in |
+| Screen capture | PowerShell + Windows Forms | PowerShell + Windows Forms | `screencapture` (built-in) |
+| Window tracking | PowerShell + Win32 API | PowerShell + Win32 API | `osascript` (built-in) |
+| Gemini API key | Required | Required | Required |
 
 ### Quick Start
 
@@ -199,6 +200,11 @@ See **[getting-started.md](getting-started.md)** for full platform-specific inst
 uv sync
 cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
+
+# Desktop app (recommended)
+cd web && npm run electron:start
+
+# Or browser mode
 ./start.sh
 ```
 

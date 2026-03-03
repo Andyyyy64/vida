@@ -170,20 +170,21 @@ data/                    # 実行時データ（gitignore済み）
 
 | プラットフォーム | ガイド |
 |---|---|
+| Windows（ネイティブ） | [getting-started.ja.md#windows-native](getting-started.ja.md#windows-native) |
 | Windows (WSL2) | [getting-started.ja.md#windows-wsl2](getting-started.ja.md#windows-wsl2) |
 | Mac | [getting-started.ja.md#mac](getting-started.ja.md#mac) |
 
 ### 必要要件
 
-| | Windows (WSL2) | Mac |
-|---|---|---|
-| Python | 3.12+（WSL2内） | 3.12+ |
-| Node.js | 22+（WSL2内） | 22+ |
-| カメラ | 外付けUSB（usbipd経由） | 内蔵カメラ |
-| マイク | 外付けUSB（usbipd経由） | 内蔵マイク |
-| 画面キャプチャ | PowerShell + Windows Forms | `screencapture`（内蔵） |
-| ウィンドウ監視 | PowerShell + Win32 API | `osascript`（内蔵） |
-| Gemini APIキー | 必要 | 必要 |
+| | Windows（ネイティブ） | Windows (WSL2) | Mac |
+|---|---|---|---|
+| Python | 3.12+（Windows） | 3.12+（WSL2内） | 3.12+ |
+| Node.js | 22+（Windows） | 22+（WSL2内） | 22+ |
+| カメラ | 内蔵 / USB（DirectShow） | 外付けUSB（usbipd経由） | 内蔵カメラ |
+| マイク | 内蔵 / USB（WASAPI） | 外付けUSB（usbipd経由） | 内蔵マイク |
+| 画面キャプチャ | PowerShell + Windows Forms | PowerShell + Windows Forms | `screencapture`（内蔵） |
+| ウィンドウ監視 | PowerShell + Win32 API | PowerShell + Win32 API | `osascript`（内蔵） |
+| Gemini APIキー | 必要 | 必要 | 必要 |
 
 ### クイックスタート
 
@@ -191,6 +192,11 @@ data/                    # 実行時データ（gitignore済み）
 uv sync
 cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
+
+# デスクトップアプリ（推奨）
+cd web && npm run electron:start
+
+# またはブラウザモード
 ./start.sh
 ```
 

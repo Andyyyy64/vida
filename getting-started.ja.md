@@ -2,10 +2,69 @@
 
 [English](getting-started.md) | **日本語**
 
+- [Windows（ネイティブ）](#windows-native)
 - [Windows (WSL2)](#windows-wsl2)
 - [Mac](#mac)
 - [共通設定](#共通設定)
 - [起動](#起動)
+
+---
+
+## Windows Native
+
+WSL2 不要。カメラは DirectShow、音声は WASAPI（sounddevice）、画面キャプチャとウィンドウ監視は PowerShell を使用。Electron デスクトップアプリがネイティブ Windows プロセスとして動作します。
+
+### 1. Python 3.12+
+
+[python.org](https://www.python.org/downloads/) からインストール、または winget で:
+
+```powershell
+winget install Python.Python.3.12
+```
+
+### 2. uv（Python パッケージマネージャー）
+
+```powershell
+winget install astral-sh.uv
+```
+
+または PowerShell で:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 3. Node.js 22+
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+```
+
+### 4. リポジトリのセットアップ
+
+```powershell
+git clone <repo-url> homelife.ai
+cd homelife.ai
+
+# Python 依存関係（sounddevice も含まれます）
+uv sync
+
+# Web UI
+cd web
+npm install
+cd ..
+```
+
+### 5. Windows プライバシー設定
+
+**設定 → プライバシーとセキュリティ** で、ターミナルアプリ（PowerShell、Windows Terminal など）に以下を許可してください:
+
+| 権限 | 用途 |
+|---|---|
+| カメラ | 内蔵 / USB カメラの撮影 |
+| マイク | 内蔵 / USB マイクの録音 |
+
+> 画面キャプチャとウィンドウ監視は PowerShell 経由のため、追加の権限は不要です。
 
 ---
 
@@ -210,25 +269,27 @@ EOF
 
 ## 起動
 
+### デスクトップアプリ（推奨）
+
 ```bash
-# 両サービスを同時起動（デーモン + Web UI）
-./start.sh
+# web/ ディレクトリから — デーモン・サーバー・Electron ウィンドウを一括起動
+cd web && npm run electron:start
 ```
 
-または個別に:
+Windows（PowerShell）の場合:
+
+```powershell
+cd web
+npm run electron:start
+```
+
+アプリがデーモンとサーバーを自動管理します。ウィンドウを閉じるとシステムトレイに格納されます。
+
+### CLI / ブラウザモード
 
 ```bash
-# デーモン（フォアグラウンド）
-life start
-
-# デーモン（バックグラウンド）
-life start -d
-
-# Web UI（開発モード）
-cd web && npm run dev
-
-# Web UI（本番モード）
-cd web && npm start
+life start -d       # デーモンをバックグラウンドで起動
+cd web && npm start # Web サーバーを起動
 ```
 
 - Web UI: http://localhost:3001
