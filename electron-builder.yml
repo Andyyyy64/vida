@@ -1,0 +1,30 @@
+appId: ai.homelife.app
+productName: homelife.ai
+
+# Entry point (compiled from web/electron/main.ts)
+directories:
+  buildResources: web/electron/build
+  output: release
+  app: web
+
+files:
+  - electron/dist/**
+  - dist/**
+  - server/**
+  - node_modules/**
+  - package.json
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

@@ -2,12 +2,17 @@
   "name": "life-ai-web",
   "private": true,
   "type": "module",
+  "main": "electron/dist/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"tsx watch server/index.ts\" \"vite\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production tsx server/index.ts"
+    "start": "NODE_ENV=production tsx server/index.ts",
+    "electron:compile": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=electron/dist/main.cjs --external:electron && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=electron/dist/preload.cjs --external:electron",
+    "electron:dev": "npm run electron:compile && concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --dev\"",
+    "electron:start": "npm run electron:compile && electron .",
+    "electron:build": "vite build && npm run electron:compile && electron-builder"
   },
   "dependencies": {
     "@hono/node-server": "^1",
@@ -18,12 +23,17 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7",
+    "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4",
     "concurrently": "^9",
+    "esbuild": "^0.24",
+    "electron": "^33",
+    "electron-builder": "^25",
     "tsx": "^4",
     "typescript": "^5",
-    "vite": "^6"
+    "vite": "^6",
+    "wait-on": "^8"
   }
 }
