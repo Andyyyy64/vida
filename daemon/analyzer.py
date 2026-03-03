@@ -244,19 +244,34 @@ class FrameAnalyzer:
                     "画面にも変化がない場合のみ「睡眠」または「不在」と分類してください。"
                 )
 
-        # Activity classification with dynamic examples
-        frequent = self._activity_mgr.get_frequent(limit=15)
+        # Activity classification grouped by meta_category
+        _META_LABELS = {
+            "focus": "集中作業",
+            "communication": "コミュニケーション",
+            "entertainment": "エンタメ",
+            "browsing": "ブラウジング",
+            "break": "休憩",
+            "idle": "アイドル",
+            "other": "その他",
+        }
+        grouped = self._activity_mgr.get_grouped_by_meta()
 
-        if frequent:
-            examples = "、".join(frequent)
+        if grouped:
+            category_lines = []
+            for meta in ["focus", "communication", "entertainment", "browsing", "break", "idle", "other"]:
+                acts = grouped.get(meta, [])
+                if acts:
+                    label = _META_LABELS[meta]
+                    category_lines.append(f"  {label}({meta}): " + "、".join(acts[:10]))
             parts.append(
-                f"\n【アクティビティ分類】\n"
-                f"これまでに使用されたカテゴリ: {examples}\n"
-                "上記のカテゴリに当てはまる場合はそのまま使ってください。\n"
-                "当てはまらない場合は、簡潔な日本語で新しいカテゴリ名を付けてください。\n"
+                "\n【アクティビティ分類】\n"
+                "以下の既知カテゴリから最も近いものを選んでください。\n"
+                "**既存カテゴリが使える場合は必ず既存のものを使うこと。新規作成は厳禁。**\n"
+                + "\n".join(category_lines) + "\n"
+                "どのカテゴリにも当てはまらない場合のみ、簡潔な日本語で新カテゴリ名を付けてください。\n"
                 "複数の活動が同時に行われている場合は、メインの活動を1つだけ選んでください。\n"
                 "人物の姿勢（横になっている、ソファでくつろいでいる等）が休息を示している場合は、"
-                "画面の内容に関わらず「休憩」「リラックス」等の休息系カテゴリを選んでください。"
+                "画面の内容に関わらず休憩系カテゴリを選んでください。"
             )
         else:
             parts.append(

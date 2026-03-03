@@ -78,6 +78,22 @@ class ActivityManager:
         """Get most frequently used activities for LLM prompt examples."""
         return self._db.get_frequent_activities(limit)
 
+    def get_grouped_by_meta(self) -> dict[str, list[str]]:
+        """Get all activities grouped by meta_category, ordered by frequency within each group."""
+        grouped: dict[str, list[str]] = {}
+        for row in self._db.get_all_activity_mappings():
+            meta = row["meta_category"]
+            if meta not in grouped:
+                grouped[meta] = []
+            grouped[meta].append(row["activity"])
+        return grouped
+
+    def apply_merge(self, old: str, new: str):
+        """Merge old activity into new in DB, then reload cache."""
+        self._db.merge_activity(old, new)
+        self._reload()
+        log.info("Merged activity: %s → %s", old, new)
+
     def normalize_and_register(self, raw: str, meta: str) -> tuple[str, str]:
         """Normalize an activity name and register it in DB.
 

@@ -526,6 +526,115 @@ def knowledge(ctx, regen: bool):
     db.close()
 
 
+@cli.command("consolidate-activities")
+@click.option("--dry-run", is_flag=True, help="Show suggestions without applying changes")
+@click.pass_context
+def consolidate_activities(ctx, dry_run: bool):
+    """Use LLM to merge duplicate/similar activity categories."""
+    import json
+
+    config: Config = ctx.obj["config"]
+
+    if not config.db_path.exists():
+        console.print("[dim]No data yet[/dim]")
+        return
+
+    from daemon.activity import ActivityManager
+    from daemon.llm import create_provider
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    activity_mgr = ActivityManager(db)
+    mappings = db.get_all_activity_mappings()
+
+    if len(mappings) < 2:
+        console.print("[dim]Not enough activity categories to consolidate[/dim]")
+        db.close()
+        return
+
+    console.print(f"[dim]Found {len(mappings)} activity categories. Asking LLM for consolidation suggestions...[/dim]")
+
+    acts_lines = [
+        f"- {r['activity']} [{r['meta_category']}] ({r['frame_count']}フレーム)"
+        for r in mappings
+    ]
+    prompt = (
+        "以下は記録されたアクティビティカテゴリの一覧です（カウントは記録フレーム数）:\n\n"
+        + "\n".join(acts_lines)
+        + "\n\n"
+        "同じ行動を指している異なる表現を統合したいです。以下の基準でマージ候補を返してください:\n"
+        "- 類義語（例: プログラミング / コーディング / ソフトウェア開発 → プログラミング）\n"
+        "- 表記ゆれ（例: YouTubeを見る / YouTube視聴 → YouTube視聴）\n"
+        "- 詳細度の違いで本質的に同じ（例: プログラミング作業 / プログラミング → プログラミング）\n\n"
+        "マージすべきペアのみを以下のJSON形式で出力してください（不要なものは含めない）:\n"
+        '[{"from": "古い名前", "to": "統合先の代表名", "reason": "理由（日本語）"}]\n'
+        "ルール:\n"
+        "- 'to' は既存カテゴリ名から選ぶこと（フレーム数が多い方を代表名に）\n"
+        "- 意味が明確に異なるものはマージしない\n"
+        "- JSONのみを出力すること\n"
+    )
+
+    provider = create_provider(
+        config.llm.provider,
+        claude_model=config.llm.claude_model,
+        gemini_model=config.llm.gemini_model,
+    )
+    raw = provider.generate_text(prompt) or ""
+    raw = raw.strip()
+
+    start = raw.find("[")
+    end = raw.rfind("]") + 1
+    suggestions: list[tuple[str, str, str]] = []
+    if start >= 0 and end > start:
+        try:
+            pairs = json.loads(raw[start:end])
+            for p in pairs:
+                if isinstance(p, dict) and "from" in p and "to" in p:
+                    suggestions.append((p["from"], p["to"], p.get("reason", "")))
+        except json.JSONDecodeError:
+            pass
+
+    if not suggestions:
+        console.print("[green]No consolidations suggested — categories look clean![/green]")
+        db.close()
+        return
+
+    table = Table(title="Suggested Activity Merges")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("From", style="red")
+    table.add_column("→ To", style="green")
+    table.add_column("Reason", style="dim")
+    for i, (from_act, to_act, reason) in enumerate(suggestions, 1):
+        table.add_row(str(i), from_act, to_act, reason)
+    console.print(table)
+
+    if dry_run:
+        console.print("[dim]Dry run — no changes applied[/dim]")
+        db.close()
+        return
+
+    if not click.confirm(f"\nApply all {len(suggestions)} merges?"):
+        db.close()
+        return
+
+    all_acts = {r["activity"] for r in db.get_all_activity_mappings()}
+    applied = 0
+    for from_act, to_act, _ in suggestions:
+        if from_act not in all_acts:
+            console.print(f"[yellow]Skip: '{from_act}' not in DB[/yellow]")
+            continue
+        if from_act == to_act:
+            continue
+        activity_mgr.apply_merge(from_act, to_act)
+        all_acts.discard(from_act)
+        all_acts.add(to_act)
+        console.print(f"  [green]✓[/green] {from_act} → {to_act}")
+        applied += 1
+
+    console.print(f"\n[green]Applied {applied} merges.[/green]")
+    db.close()
+
+
 def _parse_date(s: str) -> date:
     try:
         return date.fromisoformat(s)

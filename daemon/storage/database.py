@@ -301,6 +301,33 @@ class Database:
         )
         self._conn.commit()
 
+    def merge_activity(self, old: str, new: str):
+        """Rename old activity to new across frames and activity_mappings."""
+        self._conn.execute(
+            "UPDATE frames SET activity=? WHERE activity=?", (new, old)
+        )
+        old_row = self._conn.execute(
+            "SELECT meta_category, frame_count FROM activity_mappings WHERE activity=?", (old,)
+        ).fetchone()
+        if old_row:
+            existing = self._conn.execute(
+                "SELECT 1 FROM activity_mappings WHERE activity=?", (new,)
+            ).fetchone()
+            if existing:
+                self._conn.execute(
+                    "UPDATE activity_mappings SET frame_count = frame_count + ? WHERE activity=?",
+                    (old_row["frame_count"], new),
+                )
+                self._conn.execute("DELETE FROM activity_mappings WHERE activity=?", (old,))
+            else:
+                self._conn.execute(
+                    "UPDATE activity_mappings SET activity=? WHERE activity=?", (new, old)
+                )
+        self._conn.commit()
+        # Rebuild FTS so renamed activities are searchable under new name
+        self._conn.execute("INSERT INTO frames_fts(frames_fts) VALUES('rebuild')")
+        self._conn.commit()
+
     # --- Memos ---
 
     def get_memo(self, d: date) -> str:
