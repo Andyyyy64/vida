@@ -131,8 +131,14 @@ class AudioCapture:
     def __init__(self, data_dir: Path, device: str = "", sample_rate: int = 44100):
         self._data_dir = data_dir
         self._sample_rate = sample_rate
-        # device is only used for ALSA; sounddevice auto-selects the default mic on Mac/Windows
-        self._alsa_device = device or (_detect_alsa_device() if sys.platform == "linux" else "")
+        if sys.platform == "linux":
+            # ALSA device string (e.g. "plughw:1,0"). Empty = auto-detect.
+            self._alsa_device = device or _detect_alsa_device()
+            self._sd_device: str | None = None
+        else:
+            # sounddevice device name (substring match). Empty = system default.
+            self._alsa_device = ""
+            self._sd_device = device or None
 
     def capture(self, duration_sec: int = 30, timestamp: datetime | None = None) -> str | None:
         """Record audio and save as WAV. Returns relative path or None."""
@@ -176,6 +182,7 @@ class AudioCapture:
                 samplerate=self._sample_rate,
                 channels=1,
                 dtype="int16",
+                device=self._sd_device,  # None = system default
             )
             sd.wait()
 
