@@ -30,7 +30,7 @@ let isQuitting = false
 
 const DEFAULT_TOML = `[llm]
 provider = "gemini"
-gemini_model = "gemini-2.5-flash"
+gemini_model = "gemini-3.1-flash-lite-preview"
 
 [capture]
 interval_sec = 30

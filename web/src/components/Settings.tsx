@@ -131,7 +131,7 @@ export function Settings({ onClose }: Props) {
                 <input
                   value={data.llm.gemini_model}
                   onChange={(e) => setLlm('gemini_model', e.target.value)}
-                  placeholder="gemini-2.5-flash"
+                  placeholder="gemini-3.1-flash-lite-preview"
                 />
               </div>
               <div className="settings-field">

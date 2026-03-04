@@ -174,7 +174,7 @@ app.get('/', (c) => {
   const settings: SettingsPayload & { env_masked: Record<string, string> } = {
     llm: {
       provider: String(llm.provider ?? 'gemini'),
-      gemini_model: String(llm.gemini_model ?? 'gemini-2.5-flash'),
+      gemini_model: String(llm.gemini_model ?? 'gemini-3.1-flash-lite-preview'),
       claude_model: String(llm.claude_model ?? 'haiku'),
     },
     capture: {
@@ -227,7 +227,7 @@ app.put('/', async (c) => {
   const merged: SettingsPayload = {
     llm: {
       provider: body.llm?.provider ?? String(llm.provider ?? 'gemini'),
-      gemini_model: body.llm?.gemini_model ?? String(llm.gemini_model ?? 'gemini-2.5-flash'),
+      gemini_model: body.llm?.gemini_model ?? String(llm.gemini_model ?? 'gemini-3.1-flash-lite-preview'),
       claude_model: body.llm?.claude_model ?? String(llm.claude_model ?? 'haiku'),
     },
     capture: {

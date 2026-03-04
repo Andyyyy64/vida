@@ -12,7 +12,7 @@ def create_provider(
     provider: str,
     *,
     claude_model: str = "haiku",
-    gemini_model: str = "gemini-2.5-flash",
+    gemini_model: str = "gemini-3.1-flash-lite-preview",
 ) -> LLMProvider:
     """Create an LLM provider by name."""
     if provider == "claude":

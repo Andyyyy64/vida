@@ -32,7 +32,7 @@ class AnalysisConfig:
 class LLMConfig:
     provider: str = "claude"
     claude_model: str = "haiku"
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.1-flash-lite-preview"
 
 
 @dataclass

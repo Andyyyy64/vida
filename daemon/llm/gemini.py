@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 class GeminiProvider(LLMProvider):
     """LLM provider using Google Gemini API."""
 
-    def __init__(self, model: str = "gemini-2.5-flash"):
+    def __init__(self, model: str = "gemini-3.1-flash-lite-preview"):
         self._model = model
         self._client = None
 
