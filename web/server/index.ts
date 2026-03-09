@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
+import { compress } from 'hono/compress';
+import { cors } from 'hono/cors';
 import { readFileSync, existsSync, statSync, createReadStream } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { DATA_DIR } from './db.js';
@@ -17,8 +19,62 @@ import memosRoutes from './routes/memos.js';
 import chatRoutes from './routes/chat.js';
 import settingsRoutes from './routes/settings.js';
 import devicesRoutes from './routes/devices.js';
+import exportRoutes from './routes/export.js';
 
 const app = new Hono();
+
+// --- Middleware ---
+
+// Response compression (gzip)
+app.use('*', compress());
+
+// CORS — allow local dev origins
+app.use('*', cors({
+  origin: ['http://localhost:3001', 'http://localhost:5173'],
+}));
+
+// In-memory rate limiter for API routes (100 req/min per IP)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 100;
+
+app.use('/api/*', async (c, next) => {
+  const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+  const now = Date.now();
+  let entry = rateLimitMap.get(ip);
+
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    rateLimitMap.set(ip, entry);
+  }
+
+  entry.count++;
+
+  if (entry.count > RATE_LIMIT_MAX) {
+    return c.json({ error: 'Too many requests. Limit: 100 per minute.' }, 429);
+  }
+
+  await next();
+});
+
+// Periodically clean up expired rate-limit entries (every 5 min)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(ip);
+  }
+}, 300_000).unref();
+
+// Cache headers for Vite hashed static assets
+app.use('/dist/assets/*', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'public, max-age=31536000, immutable');
+});
+
+// --- Health checks ---
+
+app.get('/health', (c) => c.json({ status: 'ok', uptime: process.uptime() }));
+app.get('/healthz', (c) => c.json({ status: 'ok', uptime: process.uptime() }));
 
 // API routes
 app.route('/api/frames', framesRoutes);
@@ -34,6 +90,7 @@ app.route('/api/memos', memosRoutes);
 app.route('/api/chat', chatRoutes);
 app.route('/api/settings', settingsRoutes);
 app.route('/api/devices', devicesRoutes);
+app.route('/api/export', exportRoutes);
 
 // Daemon status (read from data/status.json)
 app.get('/api/status', (c) => {

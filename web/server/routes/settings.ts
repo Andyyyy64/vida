@@ -216,6 +216,41 @@ app.put('/', async (c) => {
     return c.json({ error: 'invalid JSON' }, 400);
   }
 
+  // Validate inputs
+  if (body.llm?.provider && !['gemini', 'claude'].includes(body.llm.provider)) {
+    return c.json({ error: 'Invalid LLM provider' }, 400);
+  }
+  if (body.capture?.interval_sec !== undefined) {
+    const sec = Number(body.capture.interval_sec);
+    if (!Number.isFinite(sec) || sec < 5 || sec > 3600) {
+      return c.json({ error: 'Capture interval must be 5–3600 seconds' }, 400);
+    }
+  }
+  if (body.capture?.device !== undefined) {
+    const dev = Number(body.capture.device);
+    if (!Number.isFinite(dev) || dev < 0) {
+      return c.json({ error: 'Camera device must be >= 0' }, 400);
+    }
+  }
+  if (body.presence?.sleep_start_hour !== undefined) {
+    const h = Number(body.presence.sleep_start_hour);
+    if (!Number.isFinite(h) || h < 0 || h > 23) {
+      return c.json({ error: 'Sleep start hour must be 0–23' }, 400);
+    }
+  }
+  if (body.presence?.sleep_end_hour !== undefined) {
+    const h = Number(body.presence.sleep_end_hour);
+    if (!Number.isFinite(h) || h < 0 || h > 23) {
+      return c.json({ error: 'Sleep end hour must be 0–23' }, 400);
+    }
+  }
+  if (body.chat?.discord_poll_interval !== undefined) {
+    const sec = Number(body.chat.discord_poll_interval);
+    if (!Number.isFinite(sec) || sec < 10) {
+      return c.json({ error: 'Discord poll interval must be >= 10 seconds' }, 400);
+    }
+  }
+
   // Write life.toml
   const current = readToml();
   const llm = (current.llm ?? {}) as Record<string, unknown>;
