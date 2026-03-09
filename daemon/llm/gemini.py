@@ -6,7 +6,7 @@ import os
 import time
 from pathlib import Path
 
-from daemon.llm.base import LLMProvider
+from daemon.llm.base import LLMProvider, retry_on_transient_error
 
 log = logging.getLogger(__name__)
 
@@ -63,15 +63,19 @@ class GeminiProvider(LLMProvider):
             return None
 
         try:
-            resp = client.models.generate_content(
-                model=self._model,
-                contents=prompt,
-            )
-            text = self._extract_text(resp)
+            text = self._generate_text_with_retry(client, prompt)
             return text if text else None
         except Exception:
             log.exception("Gemini generate_text failed")
             return None
+
+    @retry_on_transient_error
+    def _generate_text_with_retry(self, client, prompt: str) -> str:
+        resp = client.models.generate_content(
+            model=self._model,
+            contents=prompt,
+        )
+        return self._extract_text(resp)
 
     def analyze_images(
         self, prompt: str, image_paths: list[Path], timeout: int = 120,
@@ -94,15 +98,19 @@ class GeminiProvider(LLMProvider):
                 })
             parts.append({"text": prompt})
 
-            resp = client.models.generate_content(
-                model=self._model,
-                contents=[{"role": "user", "parts": parts}],
-            )
-            text = self._extract_text(resp)
+            text = self._analyze_images_with_retry(client, parts)
             return text if text else None
         except Exception:
             log.exception("Gemini analyze_images failed")
             return None
+
+    @retry_on_transient_error
+    def _analyze_images_with_retry(self, client, parts: list[dict]) -> str:
+        resp = client.models.generate_content(
+            model=self._model,
+            contents=[{"role": "user", "parts": parts}],
+        )
+        return self._extract_text(resp)
 
     def transcribe_audio(self, audio_path: Path, prompt: str) -> str:
         client = self._get_client()
@@ -125,22 +133,7 @@ class GeminiProvider(LLMProvider):
                 log.warning("Gemini audio processing failed for %s", audio_path)
                 return ""
 
-            resp = client.models.generate_content(
-                model=self._model,
-                contents=[{
-                    "role": "user",
-                    "parts": [
-                        {
-                            "file_data": {
-                                "mime_type": uploaded.mime_type or "audio/wav",
-                                "file_uri": uploaded.uri,
-                            },
-                        },
-                        {"text": prompt},
-                    ],
-                }],
-            )
-            return self._extract_text(resp)
+            return self._transcribe_with_retry(client, uploaded, prompt)
 
         except Exception:
             log.exception("Gemini transcribe failed for %s", audio_path)
@@ -151,3 +144,22 @@ class GeminiProvider(LLMProvider):
                     client.files.delete(name=uploaded_name)
                 except Exception:
                     pass
+
+    @retry_on_transient_error
+    def _transcribe_with_retry(self, client, uploaded, prompt: str) -> str:
+        resp = client.models.generate_content(
+            model=self._model,
+            contents=[{
+                "role": "user",
+                "parts": [
+                    {
+                        "file_data": {
+                            "mime_type": uploaded.mime_type or "audio/wav",
+                            "file_uri": uploaded.uri,
+                        },
+                    },
+                    {"text": prompt},
+                ],
+            }],
+        )
+        return self._extract_text(resp)

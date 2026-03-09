@@ -32,6 +32,7 @@ from daemon.live import LiveServer
 from daemon.llm import create_provider
 from daemon.chat.manager import ChatManager
 from daemon.notify import send_notification
+from daemon.retention import cleanup_old_data
 from daemon.storage.database import Database
 from daemon.storage.models import Event, Frame, SceneType, SCALES
 
@@ -65,6 +66,8 @@ class Daemon:
         self._extra_screen_paths: list[str] = []
         self._extra_cam_paths: list[str] = []
         self._capture_lock = threading.Lock()
+        self._consecutive_cam_failures = 0
+        self._cam_reconnect_cooldown: float = 0  # time.time() after which reconnect is allowed
 
         # Presence detection
         self._presence = PresenceDetector(
@@ -98,6 +101,7 @@ class Daemon:
         now = datetime.now()
         self._last_summary: dict[str, datetime] = {scale: now for scale in SCALES}
         self._last_report_date: str = now.strftime("%Y-%m-%d")
+        self._last_cleanup_date: str = ""  # triggers cleanup on first tick
 
     def run(self):
         self._write_pid()
@@ -245,6 +249,30 @@ class Daemon:
                 log.debug("Camera change detected (%d): %s",
                           len(self._extra_cam_paths), rel_path)
 
+    def _try_reconnect_camera(self) -> bool:
+        """Close and reopen the camera after consecutive capture failures.
+
+        Returns True if the camera was successfully reconnected.
+        """
+        if time.time() < self._cam_reconnect_cooldown:
+            return False
+
+        log.warning("Attempting camera reconnect after %d consecutive failures",
+                     self._consecutive_cam_failures)
+        with self._cam_lock:
+            self._camera.close()
+            success = self._camera.open()
+
+        if success:
+            log.info("Camera reconnected successfully")
+            self._consecutive_cam_failures = 0
+            self._cam_reconnect_cooldown = 0
+            return True
+        else:
+            log.error("Camera reconnect failed, will retry in 30s")
+            self._cam_reconnect_cooldown = time.time() + 30
+            return False
+
     def _tick(self):
         now = datetime.now()
         self._frame_count += 1
@@ -254,6 +282,14 @@ class Daemon:
         if self._has_camera:
             with self._cam_lock:
                 raw_frame = self._camera.capture()
+            if raw_frame is None:
+                self._consecutive_cam_failures += 1
+                log.warning("Camera capture failed (%d consecutive)",
+                            self._consecutive_cam_failures)
+                if self._consecutive_cam_failures >= 3:
+                    self._try_reconnect_camera()
+            else:
+                self._consecutive_cam_failures = 0
 
         # Collect audio from previous interval (recorded during sleep)
         audio_path, transcription = self._collect_audio()
@@ -398,6 +434,24 @@ class Daemon:
                 if report:
                     self._send_report_notification(yesterday, report)
             self._last_report_date = today_str
+
+        # Daily retention cleanup
+        self._check_retention(now)
+
+    def _check_retention(self, now: datetime):
+        """Run retention cleanup once per day."""
+        today_str = now.strftime("%Y-%m-%d")
+        if today_str == self._last_cleanup_date:
+            return
+        retention_days = self._config.retention_days
+        if retention_days <= 0:
+            self._last_cleanup_date = today_str
+            return
+        try:
+            cleanup_old_data(self._db, self._config.data_dir, retention_days)
+        except Exception:
+            log.exception("Retention cleanup failed")
+        self._last_cleanup_date = today_str
 
     def _check_summaries(self, now: datetime):
         generators = {

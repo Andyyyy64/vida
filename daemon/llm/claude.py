@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from daemon.llm.base import LLMProvider
+from daemon.llm.base import LLMProvider, retry_on_transient_error
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +53,14 @@ class ClaudeProvider(LLMProvider):
             log.error("claude CLI not found in PATH")
             return None
 
+        try:
+            return self._call_with_retry(claude, prompt, timeout)
+        except Exception:
+            log.exception("Failed to call claude")
+            return None
+
+    @retry_on_transient_error
+    def _call_with_retry(self, claude: str, prompt: str, timeout: int) -> str | None:
         out_path = err_path = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -76,15 +84,12 @@ class ClaudeProvider(LLMProvider):
 
             if result.returncode != 0:
                 log.warning("claude returned %d: %s", result.returncode, stderr[:200])
-                return None
+                # Raise so the retry decorator can evaluate the error
+                raise RuntimeError(f"claude exit code {result.returncode}: {stderr[:200]}")
             return stdout if stdout else None
 
         except subprocess.TimeoutExpired:
-            log.warning("claude timed out after %ds", timeout)
-            return None
-        except Exception:
-            log.exception("Failed to call claude")
-            return None
+            raise RuntimeError(f"claude timeout after {timeout}s")
         finally:
             if out_path:
                 Path(out_path).unlink(missing_ok=True)
