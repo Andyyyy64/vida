@@ -205,21 +205,82 @@ See **[getting-started.md](getting-started.md)** for full platform-specific inst
 
 ### Quick Start
 
+> **Prerequisites:** Python 3.12+, Node.js 22+, [uv](https://docs.astral.sh/uv/), and a [Gemini API key](https://aistudio.google.com/).
+> Don't have these yet? See the [full setup guide](getting-started.md) for installation instructions.
+
+<details>
+<summary><b>Windows (PowerShell) — 5 min</b></summary>
+
+```powershell
+# 1. Clone and install
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web; npm install; cd ..
+
+# 2. Set your API key
+"GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
+
+# 3. Launch the desktop app
+cd web; npm run electron:start
+```
+
+> **Permissions:** When prompted, allow Camera and Microphone access in **Settings → Privacy & Security**.
+
+</details>
+
+<details>
+<summary><b>macOS (Terminal) — 5 min</b></summary>
+
 ```bash
+# 1. Clone and install
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web && npm install && cd ..
+
+# 2. Set your API key
+echo "GEMINI_API_KEY=your-key-here" > .env
+
+# 3. Launch the desktop app
+cd web && npm run electron:start
+```
+
+> **Permissions:** Grant Camera, Microphone, Screen Recording, and Accessibility access for your terminal in **System Settings → Privacy & Security**. See the [macOS permission guide](getting-started.md#5-macos-privacy-permissions) for details.
+
+</details>
+
+<details>
+<summary><b>Linux / WSL2</b></summary>
+
+```bash
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
 uv sync
 cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
 
-# Desktop app (recommended)
-cd web && npm run electron:start
-
-# Or browser mode
+# Start daemon + web UI
 ./start.sh
+# Open http://localhost:3001
 ```
+
+For WSL2 camera setup (usbipd), see the [full guide](getting-started.md#windows-wsl2).
+
+</details>
+
+#### Verify it's working
+
+```bash
+life look      # Capture + analyze a single frame
+life status    # Check daemon is running
+```
+
+Open http://localhost:3001 — you should see the timeline with your first captured frame.
 
 ### Configuration
 
-Configure in `life.toml` (all options in the [Configuration section](#configuration-1) below):
+All settings live in `life.toml` (created automatically on first launch, or create manually):
 
 ```toml
 [llm]
@@ -233,20 +294,9 @@ interval_sec = 30
 enabled = true
 ```
 
-Add user context to `data/context.md` so the AI can reference your name, environment, and habits in its analysis.
+**Tip:** Create `data/context.md` with your name, occupation, and habits — the AI uses this for more accurate activity descriptions.
 
-### Running
-
-```bash
-./start.sh       # Start daemon + web UI together
-
-life start       # Daemon only (foreground)
-life start -d    # Daemon only (background)
-cd web && npm run dev    # Web UI (dev mode)
-```
-
-- Web UI: http://localhost:3001
-- Live feed: http://localhost:3002
+See the [full configuration reference](#configuration-1) below for all options.
 
 ### Docker
 
@@ -254,7 +304,7 @@ cd web && npm run dev    # Web UI (dev mode)
 docker compose up
 ```
 
-For environments with camera/audio devices, configure device mounts in `docker-compose.override.yml`.
+For camera/audio device passthrough, configure `docker-compose.override.yml`. See [Docker setup](getting-started.md).
 
 ## CLI Commands
 

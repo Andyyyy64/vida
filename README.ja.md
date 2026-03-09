@@ -197,21 +197,82 @@ data/                    # 実行時データ（gitignore済み）
 
 ### クイックスタート
 
+> **前提条件:** Python 3.12+、Node.js 22+、[uv](https://docs.astral.sh/uv/)、[Gemini APIキー](https://aistudio.google.com/)
+> 未インストールの場合は[セットアップガイド](getting-started.ja.md)を参照してください。
+
+<details>
+<summary><b>Windows（PowerShell）— 5分</b></summary>
+
+```powershell
+# 1. クローン & インストール
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web; npm install; cd ..
+
+# 2. APIキーを設定
+"GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
+
+# 3. デスクトップアプリを起動
+cd web; npm run electron:start
+```
+
+> **権限:** 起動時にカメラ・マイクへのアクセスを求められたら、**設定 → プライバシーとセキュリティ**で許可してください。
+
+</details>
+
+<details>
+<summary><b>macOS（ターミナル）— 5分</b></summary>
+
 ```bash
+# 1. クローン & インストール
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
+uv sync
+cd web && npm install && cd ..
+
+# 2. APIキーを設定
+echo "GEMINI_API_KEY=your-key-here" > .env
+
+# 3. デスクトップアプリを起動
+cd web && npm run electron:start
+```
+
+> **権限:** ターミナルアプリに対して、**システム設定 → プライバシーとセキュリティ**でカメラ・マイク・画面収録・アクセシビリティを許可してください。詳細は[macOS権限ガイド](getting-started.ja.md#5-macos-のプライバシー権限)を参照。
+
+</details>
+
+<details>
+<summary><b>Linux / WSL2</b></summary>
+
+```bash
+git clone https://github.com/Andyyyy64/homelife.ai.git
+cd homelife.ai
 uv sync
 cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
 
-# デスクトップアプリ（推奨）
-cd web && npm run electron:start
-
-# またはブラウザモード
+# デーモン + Web UIを起動
 ./start.sh
+# http://localhost:3001 を開く
 ```
+
+WSL2でのカメラ設定（usbipd）については[セットアップガイド](getting-started.ja.md#windows-wsl2)を参照。
+
+</details>
+
+#### 動作確認
+
+```bash
+life look      # フレームを1枚撮影して分析
+life status    # デーモンの状態確認
+```
+
+http://localhost:3001 を開くと、最初のフレームがタイムラインに表示されます。
 
 ### 設定
 
-`life.toml`で動作を設定します（全オプションは[下記参照](#設定-1)）:
+`life.toml`で動作を設定します（初回起動時に自動生成されます。手動作成も可）:
 
 ```toml
 [llm]
@@ -225,20 +286,9 @@ interval_sec = 30
 enabled = true
 ```
 
-`data/context.md`にユーザー情報を書くと、LLMが名前・環境・習慣を踏まえた分析を行います。
+**ヒント:** `data/context.md`に名前・職業・習慣を書くと、AIがより正確なアクティビティ説明を生成します。
 
-### 起動
-
-```bash
-./start.sh       # デーモン + Web UIを同時起動
-
-life start       # デーモンのみ（フォアグラウンド）
-life start -d    # デーモンのみ（バックグラウンド）
-cd web && npm run dev    # Web UI（開発モード）
-```
-
-- Web UI: http://localhost:3001
-- ライブフィード: http://localhost:3002
+全オプションは[下記の設定リファレンス](#設定-1)を参照してください。
 
 ### Docker
 
@@ -246,7 +296,7 @@ cd web && npm run dev    # Web UI（開発モード）
 docker compose up
 ```
 
-カメラ・音声デバイスを使う環境では`docker-compose.override.yml`でデバイスマウントを設定してください。
+カメラ・音声デバイスのパススルーは`docker-compose.override.yml`で設定。詳細は[セットアップガイド](getting-started.ja.md)を参照。
 
 ## CLIコマンド
 
