@@ -650,6 +650,42 @@ def consolidate_activities(ctx, dry_run: bool):
     db.close()
 
 
+@cli.command()
+@click.option("--days", type=int, default=None,
+              help="Override retention_days from config")
+@click.pass_context
+def cleanup(ctx, days: int | None):
+    """Delete old data beyond the retention period."""
+    config: Config = ctx.obj["config"]
+    retention_days = days if days is not None else config.retention_days
+
+    if retention_days <= 0:
+        console.print("[yellow]Retention is disabled (retention_days <= 0)[/yellow]")
+        return
+
+    if not config.db_path.exists():
+        console.print("[dim]No data yet[/dim]")
+        return
+
+    console.print(f"[dim]Cleaning up data older than {retention_days} days...[/dim]")
+
+    from daemon.retention import cleanup_old_data
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    result = cleanup_old_data(db, config.data_dir, retention_days)
+    db.close()
+
+    freed_mb = result["freed_bytes"] / (1024 * 1024)
+    console.print(f"[green]Cleanup complete:[/green]")
+    console.print(f"  Frames deleted:       {result['frames_deleted']}")
+    console.print(f"  Summaries deleted:    {result['summaries_deleted']}")
+    console.print(f"  Events deleted:       {result['events_deleted']}")
+    console.print(f"  Window events deleted:{result['window_events_deleted']}")
+    console.print(f"  Files removed:        {result['files_deleted']}")
+    console.print(f"  Disk freed:           {freed_mb:.1f} MB")
+
+
 def _parse_date(s: str) -> date:
     try:
         return date.fromisoformat(s)
