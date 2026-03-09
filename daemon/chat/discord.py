@@ -55,7 +55,9 @@ class DiscordSource(ChatSource):
             return
         self._running = True
         self._thread = threading.Thread(
-            target=self._run, daemon=True, name="chat-discord",
+            target=self._run,
+            daemon=True,
+            name="chat-discord",
         )
         self._thread.start()
         log.info("Discord chat source started (poll every %ds)", self._config.poll_interval)
@@ -159,8 +161,12 @@ class DiscordSource(ChatSource):
             log.info("DM backfill: all %d channels already tracked", len(dm_channels))
             return
 
-        log.info("Backfilling %d/%d DM channels (cutoff: %s)",
-                 len(to_backfill), len(dm_channels), cutoff.strftime("%Y-%m-%d"))
+        log.info(
+            "Backfilling %d/%d DM channels (cutoff: %s)",
+            len(to_backfill),
+            len(dm_channels),
+            cutoff.strftime("%Y-%m-%d"),
+        )
 
         total = 0
         for ch_id, ch_name in to_backfill:
@@ -178,10 +184,12 @@ class DiscordSource(ChatSource):
             return
 
         # Guilds we already have self messages from
-        existing_guilds = {r[0] for r in conn.execute(
-            "SELECT DISTINCT guild_id FROM chat_messages "
-            "WHERE platform='discord' AND guild_id != '' AND is_self=1"
-        ).fetchall()}
+        existing_guilds = {
+            r[0]
+            for r in conn.execute(
+                "SELECT DISTINCT guild_id FROM chat_messages WHERE platform='discord' AND guild_id != '' AND is_self=1"
+            ).fetchall()
+        }
 
         to_backfill: list[tuple[str, str]] = []
         for g in guilds:
@@ -206,8 +214,12 @@ class DiscordSource(ChatSource):
             log.info("Guild backfill: all %d guilds already tracked", len(guilds))
             return
 
-        log.info("Backfilling %d/%d guilds via search API (cutoff: %s)",
-                 len(to_backfill), len(guilds), cutoff.strftime("%Y-%m-%d"))
+        log.info(
+            "Backfilling %d/%d guilds via search API (cutoff: %s)",
+            len(to_backfill),
+            len(guilds),
+            cutoff.strftime("%Y-%m-%d"),
+        )
 
         total = 0
         for g_id, g_name in to_backfill:
@@ -219,8 +231,10 @@ class DiscordSource(ChatSource):
         log.info("Guild backfill complete: %d messages from %d guilds", total, len(to_backfill))
 
     def _backfill_guild_search(
-        self, conn: sqlite3.Connection,
-        guild_id: str, guild_name: str,
+        self,
+        conn: sqlite3.Connection,
+        guild_id: str,
+        guild_name: str,
         cutoff: datetime,
     ) -> int:
         """Use Discord search API to fetch only own messages from a guild."""
@@ -272,9 +286,12 @@ class DiscordSource(ChatSource):
         return total
 
     def _backfill_channel(
-        self, conn: sqlite3.Connection,
-        channel_id: str, channel_name: str,
-        guild_id: str, guild_name: str,
+        self,
+        conn: sqlite3.Connection,
+        channel_id: str,
+        channel_name: str,
+        guild_id: str,
+        guild_name: str,
         cutoff: datetime,
     ) -> int:
         """Paginate backwards through a channel's history until cutoff. Returns count.
@@ -372,7 +389,12 @@ class DiscordSource(ChatSource):
                     ch_name = ch.get("name", "")
                     self._channel_names[ch_id] = ch_name
                     n = self._fetch_new_messages(
-                        conn, ch_id, ch_name, g_id, g_name, self_only=True,
+                        conn,
+                        ch_id,
+                        ch_name,
+                        g_id,
+                        g_name,
+                        self_only=True,
                     )
                     count += n
 
@@ -380,9 +402,12 @@ class DiscordSource(ChatSource):
             log.info("Discord: collected %d new messages", count)
 
     def _fetch_new_messages(
-        self, conn: sqlite3.Connection,
-        channel_id: str, channel_name: str,
-        guild_id: str, guild_name: str,
+        self,
+        conn: sqlite3.Connection,
+        channel_id: str,
+        channel_name: str,
+        guild_id: str,
+        guild_name: str,
         self_only: bool = False,
     ) -> int:
         """Fetch messages newer than last known ID. Returns count stored."""
@@ -412,9 +437,13 @@ class DiscordSource(ChatSource):
     # --- Shared helpers ---
 
     def _store_message(
-        self, conn: sqlite3.Connection,
-        msg: dict, channel_id: str, channel_name: str,
-        guild_id: str, guild_name: str,
+        self,
+        conn: sqlite3.Connection,
+        msg: dict,
+        channel_id: str,
+        channel_name: str,
+        guild_id: str,
+        guild_name: str,
     ) -> int:
         """Store a single Discord message. Returns 1 on success, 0 on skip/duplicate."""
         # Skip non-default message types (joins, pins, system messages)
@@ -427,10 +456,14 @@ class DiscordSource(ChatSource):
         ts = self._parse_timestamp(msg["timestamp"])
 
         attachments = [a.get("filename", "") for a in msg.get("attachments", [])]
-        meta = json.dumps(
-            {"attachments": attachments, "embeds": len(msg.get("embeds", []))},
-            ensure_ascii=False,
-        ) if attachments or msg.get("embeds") else ""
+        meta = (
+            json.dumps(
+                {"attachments": attachments, "embeds": len(msg.get("embeds", []))},
+                ensure_ascii=False,
+            )
+            if attachments or msg.get("embeds")
+            else ""
+        )
 
         try:
             conn.execute(
@@ -440,8 +473,12 @@ class DiscordSource(ChatSource):
                 "content, timestamp, metadata) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    "discord", msg["id"], channel_id, channel_name,
-                    guild_id, guild_name,
+                    "discord",
+                    msg["id"],
+                    channel_id,
+                    channel_name,
+                    guild_id,
+                    guild_name,
                     author.get("id", ""),
                     author.get("global_name") or author.get("username", ""),
                     author.get("id") == self._config.user_id,
@@ -457,11 +494,14 @@ class DiscordSource(ChatSource):
     def _api_get(self, path: str, _retries: int = 3) -> list | dict | None:
         """Make a GET request to Discord API. Returns parsed JSON or None on error."""
         url = f"{API_BASE}{path}"
-        req = urllib.request.Request(url, headers={
-            "Authorization": self._config.user_token,
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        })
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": self._config.user_token,
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            },
+        )
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 return json.loads(resp.read())

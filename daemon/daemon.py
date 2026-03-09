@@ -88,7 +88,8 @@ class Daemon:
 
         self._activity_mgr = ActivityManager(self._db)
         self._transcriber = Transcriber(
-            provider, context_path=config.data_dir / "context.md",
+            provider,
+            context_path=config.data_dir / "context.md",
         )
         self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db, self._activity_mgr)
         self._summary_gen = SummaryGenerator(provider, self._db, config.data_dir)
@@ -120,9 +121,11 @@ class Daemon:
         if self._has_camera:
             self._start_live_thread()
         self._write_status()
-        log.info("Daemon started (interval=%ds, camera=%s)",
-                 self._config.capture.interval_sec,
-                 "yes" if self._has_camera else "no")
+        log.info(
+            "Daemon started (interval=%ds, camera=%s)",
+            self._config.capture.interval_sec,
+            "yes" if self._has_camera else "no",
+        )
 
         try:
             while self._running:
@@ -161,6 +164,7 @@ class Daemon:
         Runs pose detection every ~10th frame and draws skeleton overlay
         on a separate stream (/stream/pose).
         """
+
         def _feed():
             live_pose = PoseDetector()  # separate instance for live thread
             frame_n = 0
@@ -171,30 +175,27 @@ class Daemon:
                     raw = self._camera.capture()
                 if raw is not None:
                     # Encode original
-                    _, jpeg = cv2.imencode(
-                        ".jpg", raw, [cv2.IMWRITE_JPEG_QUALITY, 70]
-                    )
+                    _, jpeg = cv2.imencode(".jpg", raw, [cv2.IMWRITE_JPEG_QUALITY, 70])
 
                     # Pose overlay (throttled detection, draw every frame)
                     frame_n += 1
                     if frame_n % pose_interval == 0:
                         live_pose.detect(raw)
                     pose_frame = live_pose.draw_overlay(raw)
-                    _, jpeg_pose = cv2.imencode(
-                        ".jpg", pose_frame, [cv2.IMWRITE_JPEG_QUALITY, 70]
-                    )
+                    _, jpeg_pose = cv2.imencode(".jpg", pose_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
 
                     self._live.update_frame(jpeg.tobytes(), jpeg_pose.tobytes())
                 time.sleep(0.033)  # ~30fps
+
         thread = threading.Thread(target=_feed, daemon=True, name="live-feed")
         thread.start()
 
     def _start_audio_recording(self, now: datetime):
         """Start recording audio in a background thread for the current interval."""
+
         def _record():
-            self._pending_audio = self._audio.capture(
-                duration_sec=self._config.capture.interval_sec, timestamp=now
-            )
+            self._pending_audio = self._audio.capture(duration_sec=self._config.capture.interval_sec, timestamp=now)
+
         self._audio_thread = threading.Thread(target=_record, daemon=True)
         self._audio_thread.start()
 
@@ -216,6 +217,7 @@ class Daemon:
 
     def _check_screen_change(self) -> None:
         """Capture a screenshot and keep it only if the screen changed."""
+
         def _do_check():
             path = self._screen.capture(datetime.now())
             if not path:
@@ -224,8 +226,7 @@ class Daemon:
             if self._screen_detector.is_changed_file(abs_path):
                 with self._capture_lock:
                     self._extra_screen_paths.append(path)
-                    log.debug("Screen change detected (%d): %s",
-                              len(self._extra_screen_paths), path)
+                    log.debug("Screen change detected (%d): %s", len(self._extra_screen_paths), path)
             else:
                 # No change — delete the file
                 with contextlib.suppress(OSError):
@@ -245,8 +246,7 @@ class Daemon:
             rel_path = self._frame_store.save(raw, now)
             with self._capture_lock:
                 self._extra_cam_paths.append(rel_path)
-                log.debug("Camera change detected (%d): %s",
-                          len(self._extra_cam_paths), rel_path)
+                log.debug("Camera change detected (%d): %s", len(self._extra_cam_paths), rel_path)
 
     def _try_reconnect_camera(self) -> bool:
         """Close and reopen the camera after consecutive capture failures.
@@ -256,8 +256,7 @@ class Daemon:
         if time.time() < self._cam_reconnect_cooldown:
             return False
 
-        log.warning("Attempting camera reconnect after %d consecutive failures",
-                     self._consecutive_cam_failures)
+        log.warning("Attempting camera reconnect after %d consecutive failures", self._consecutive_cam_failures)
         with self._cam_lock:
             self._camera.close()
             success = self._camera.open()
@@ -283,8 +282,7 @@ class Daemon:
                 raw_frame = self._camera.capture()
             if raw_frame is None:
                 self._consecutive_cam_failures += 1
-                log.warning("Camera capture failed (%d consecutive)",
-                            self._consecutive_cam_failures)
+                log.warning("Camera capture failed (%d consecutive)", self._consecutive_cam_failures)
                 if self._consecutive_cam_failures >= 3:
                     self._try_reconnect_camera()
             else:
@@ -336,11 +334,13 @@ class Daemon:
 
                 if new_state != prev_state:
                     log.info("Presence: %s -> %s", prev_state.value, new_state.value)
-                    self._db.insert_event(Event(
-                        timestamp=now,
-                        event_type="presence_change",
-                        description=f"{prev_state.value} → {new_state.value}",
-                    ))
+                    self._db.insert_event(
+                        Event(
+                            timestamp=now,
+                            event_type="presence_change",
+                            description=f"{prev_state.value} → {new_state.value}",
+                        )
+                    )
 
         # Collect change-detected extra captures from previous interval
         with self._capture_lock:
@@ -350,8 +350,7 @@ class Daemon:
             self._extra_cam_paths = []
 
         if extra_screens or extra_cams:
-            log.info("Change captures: %d screens, %d cams",
-                     len(extra_screens), len(extra_cams))
+            log.info("Change captures: %d screens, %d cams", len(extra_screens), len(extra_cams))
 
         # Record frame in DB
         frame = Frame(
@@ -373,32 +372,40 @@ class Daemon:
         # Scene change event (requires camera)
         if raw_frame is not None:
             if self._last_scene and scene_type != self._last_scene:
-                self._db.insert_event(Event(
-                    timestamp=now,
-                    event_type="scene_change",
-                    description=f"{self._last_scene.value} → {scene_type.value}",
-                    frame_id=frame_id,
-                ))
+                self._db.insert_event(
+                    Event(
+                        timestamp=now,
+                        event_type="scene_change",
+                        description=f"{self._last_scene.value} → {scene_type.value}",
+                        frame_id=frame_id,
+                    )
+                )
             self._last_scene = scene_type
 
             # Motion spike event
             if motion_score > self._config.analysis.motion_threshold * 5:
-                self._db.insert_event(Event(
-                    timestamp=now,
-                    event_type="motion_spike",
-                    description=f"大きな動き検知 (score={motion_score:.3f})",
-                    frame_id=frame_id,
-                ))
+                self._db.insert_event(
+                    Event(
+                        timestamp=now,
+                        event_type="motion_spike",
+                        description=f"大きな動き検知 (score={motion_score:.3f})",
+                        frame_id=frame_id,
+                    )
+                )
 
         pose_label = ""
         if pose_data:
             from daemon.analysis.pose import PoseResult
+
             pr = PoseResult.from_json(pose_data)
             pose_label = pr.posture
 
         log.info(
             "frame=%d bright=%.0f motion=%.3f scene=%s presence=%s pose=%s audio=%s window=%s",
-            self._frame_count, brightness, motion_score, scene_type.value,
+            self._frame_count,
+            brightness,
+            motion_score,
+            scene_type.value,
             self._presence.state.value if self._presence_enabled else "n/a",
             pose_label or "n/a",
             "yes" if audio_path else "no",
@@ -409,7 +416,10 @@ class Daemon:
         all_extra_screens = extra_screens or None
         all_extra_cams = extra_cams or None
         description, activity = self._frame_analyzer.analyze(
-            frame, all_extra_screens, all_extra_cams, has_face=has_face,
+            frame,
+            all_extra_screens,
+            all_extra_cams,
+            has_face=has_face,
             pose_data=pose_data,
         )
         if description or activity:

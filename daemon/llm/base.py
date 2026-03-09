@@ -56,6 +56,7 @@ def retry_on_transient_error(func):
     Retries up to 3 times with delays of 2s, 4s, 8s.
     Does NOT retry on auth errors (401/403) or invalid requests (400).
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         last_exc = None
@@ -65,19 +66,22 @@ def retry_on_transient_error(func):
             except Exception as exc:
                 last_exc = exc
                 if attempt >= _MAX_RETRIES:
-                    log.warning("LLM call %s failed after %d retries: %s",
-                                func.__qualname__, _MAX_RETRIES, exc)
+                    log.warning("LLM call %s failed after %d retries: %s", func.__qualname__, _MAX_RETRIES, exc)
                     raise
 
                 if not _is_transient_error(exc):
-                    log.warning("LLM call %s failed with non-retryable error: %s",
-                                func.__qualname__, exc)
+                    log.warning("LLM call %s failed with non-retryable error: %s", func.__qualname__, exc)
                     raise
 
-                delay = _BASE_DELAY * (2 ** attempt)
-                log.warning("LLM call %s failed (attempt %d/%d), retrying in %ds: %s",
-                            func.__qualname__, attempt + 1, _MAX_RETRIES + 1,
-                            delay, exc)
+                delay = _BASE_DELAY * (2**attempt)
+                log.warning(
+                    "LLM call %s failed (attempt %d/%d), retrying in %ds: %s",
+                    func.__qualname__,
+                    attempt + 1,
+                    _MAX_RETRIES + 1,
+                    delay,
+                    exc,
+                )
                 time.sleep(delay)
 
         raise last_exc  # unreachable, but satisfies type checker
@@ -95,7 +99,10 @@ class LLMProvider(abc.ABC):
 
     @abc.abstractmethod
     def analyze_images(
-        self, prompt: str, image_paths: list[Path], timeout: int = 120,
+        self,
+        prompt: str,
+        image_paths: list[Path],
+        timeout: int = 120,
     ) -> str | None:
         """Generate text from a prompt with image inputs."""
         ...

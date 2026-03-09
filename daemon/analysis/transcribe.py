@@ -22,9 +22,7 @@ class Transcriber:
             try:
                 ctx = self._context_path.read_text(encoding="utf-8").strip()
                 if ctx:
-                    parts.append(
-                        f"背景情報（人名や語彙の参考にしてください）:\n{ctx[:300]}\n"
-                    )
+                    parts.append(f"背景情報（人名や語彙の参考にしてください）:\n{ctx[:300]}\n")
             except Exception:
                 pass
 

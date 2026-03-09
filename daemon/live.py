@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle each MJPEG client connection in its own thread."""
+
     daemon_threads = True
     allow_reuse_address = True
 
@@ -79,9 +80,7 @@ class LiveServer:
                     return
 
                 self.send_response(200)
-                self.send_header(
-                    "Content-Type", "multipart/x-mixed-replace; boundary=frame"
-                )
+                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
                 self.send_header("Cache-Control", "no-cache")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
@@ -101,9 +100,7 @@ class LiveServer:
                             last_id = frame_id
                             self.wfile.write(b"--frame\r\n")
                             self.wfile.write(b"Content-Type: image/jpeg\r\n")
-                            self.wfile.write(
-                                f"Content-Length: {len(jpeg)}\r\n\r\n".encode()
-                            )
+                            self.wfile.write(f"Content-Length: {len(jpeg)}\r\n\r\n".encode())
                             self.wfile.write(jpeg)
                             self.wfile.write(b"\r\n")
                             self.wfile.flush()

@@ -2,6 +2,7 @@
 
 Run as: python daemon/devices.py
 """
+
 from __future__ import annotations
 
 import glob
@@ -11,6 +12,7 @@ import subprocess
 import sys
 
 # ── Camera ────────────────────────────────────────────────────────────────────
+
 
 def _cameras_linux() -> list[dict]:
     devices = []
@@ -34,7 +36,9 @@ def _cameras_mac() -> list[dict]:
     try:
         result = subprocess.run(
             ["system_profiler", "SPCameraDataType"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         devices = []
         idx = 0
@@ -56,13 +60,12 @@ def _cameras_mac() -> list[dict]:
 def _cameras_windows() -> list[dict]:
     # Try PowerShell first for friendly names
     try:
-        ps_cmd = (
-            "Get-PnpDevice -Class Camera -Status OK | "
-            "Select-Object -ExpandProperty FriendlyName"
-        )
+        ps_cmd = "Get-PnpDevice -Class Camera -Status OK | Select-Object -ExpandProperty FriendlyName"
         result = subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps_cmd],
-            capture_output=True, text=True, timeout=8,
+            capture_output=True,
+            text=True,
+            timeout=8,
         )
         names = [line.strip() for line in result.stdout.splitlines() if line.strip()]
         if names:
@@ -75,6 +78,7 @@ def _cameras_windows() -> list[dict]:
 def cv2_backend_flag(platform: str) -> int:
     try:
         import cv2
+
         return {
             "darwin": cv2.CAP_AVFOUNDATION,
             "win32": cv2.CAP_DSHOW,
@@ -116,11 +120,15 @@ def list_cameras() -> list[dict]:
 
 # ── Audio ─────────────────────────────────────────────────────────────────────
 
+
 def _audio_linux() -> list[dict]:
     """Enumerate ALSA capture devices via arecord -l."""
     try:
         result = subprocess.run(
-            ["arecord", "-l"], capture_output=True, text=True, timeout=5,
+            ["arecord", "-l"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         devices = [{"id": "", "name": "Auto-detect (default)"}]
         for line in result.stdout.splitlines():
@@ -140,6 +148,7 @@ def _audio_sounddevice() -> list[dict]:
     """Enumerate audio input devices via sounddevice (Mac / Windows)."""
     try:
         import sounddevice as sd
+
         all_devs = sd.query_devices()
         devices = [{"id": "", "name": "System default"}]
         for dev in all_devs:

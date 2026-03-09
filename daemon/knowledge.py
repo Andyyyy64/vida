@@ -191,9 +191,7 @@ class KnowledgeGenerator:
 
         lines = ["## アクティビティ頻度 (上位)"]
         for m in mappings[:15]:
-            lines.append(
-                f"- {m['activity']}: {m['frame_count']}回 [{m['meta_category']}]"
-            )
+            lines.append(f"- {m['activity']}: {m['frame_count']}回 [{m['meta_category']}]")
 
         return "\n".join(lines)
 

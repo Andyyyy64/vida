@@ -28,22 +28,21 @@ class ReviewPackager:
         for f in keyframes:
             abs_path = self._config.data_dir / f.path
             if abs_path.exists():
-                frame_paths.append({
-                    "path": str(abs_path.resolve()),
-                    "timestamp": f.timestamp.isoformat(),
-                    "brightness": f.brightness,
-                    "motion_score": f.motion_score,
-                    "scene_type": f.scene_type.value,
-                    "claude_description": f.claude_description,
-                })
+                frame_paths.append(
+                    {
+                        "path": str(abs_path.resolve()),
+                        "timestamp": f.timestamp.isoformat(),
+                        "brightness": f.brightness,
+                        "motion_score": f.motion_score,
+                        "scene_type": f.scene_type.value,
+                        "claude_description": f.claude_description,
+                    }
+                )
 
         return {
             "date": d.isoformat(),
             "stats": stats,
-            "timeline": [
-                {"time": e.time, "icon": e.icon, "description": e.description}
-                for e in timeline_entries
-            ],
+            "timeline": [{"time": e.time, "icon": e.icon, "description": e.description} for e in timeline_entries],
             "keyframes": frame_paths,
             "events": [
                 {
@@ -81,23 +80,22 @@ class ReviewPackager:
             for f in package["keyframes"]
         )
         summary_text = "\n".join(
-            f"  [{s['scale']}] {s['timestamp']}: {s['content'][:100]}"
-            for s in package["summaries"]
+            f"  [{s['scale']}] {s['timestamp']}: {s['content'][:100]}" for s in package["summaries"]
         )
 
         return f"""## Daily Life Review - {d.isoformat()}
 
 ### Stats
-- Frames captured: {package['stats']['total_frames']}
-- Claude analyzed: {package['stats']['analyzed_frames']}
-- Events: {package['stats']['total_events']}
-- Avg brightness: {package['stats']['avg_brightness']:.1f}
+- Frames captured: {package["stats"]["total_frames"]}
+- Claude analyzed: {package["stats"]["analyzed_frames"]}
+- Events: {package["stats"]["total_events"]}
+- Avg brightness: {package["stats"]["avg_brightness"]:.1f}
 
 ### Summaries
-{summary_text or '  (none yet)'}
+{summary_text or "  (none yet)"}
 
 ### Keyframes
-{frame_list or '  (no frames)'}
+{frame_list or "  (no frames)"}
 
 キーフレーム画像を読んで、1日の生活を総合的に分析してください。
 """

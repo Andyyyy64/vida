@@ -79,7 +79,10 @@ class GeminiProvider(LLMProvider):
         return self._extract_text(resp)
 
     def analyze_images(
-        self, prompt: str, image_paths: list[Path], timeout: int = 120,
+        self,
+        prompt: str,
+        image_paths: list[Path],
+        timeout: int = 120,
     ) -> str | None:
         client = self._get_client()
         if not client:
@@ -91,12 +94,14 @@ class GeminiProvider(LLMProvider):
                 data = p.read_bytes()
                 suffix = p.suffix.lower()
                 mime = "image/png" if suffix == ".png" else "image/jpeg"
-                parts.append({
-                    "inline_data": {
-                        "mime_type": mime,
-                        "data": base64.b64encode(data).decode(),
-                    },
-                })
+                parts.append(
+                    {
+                        "inline_data": {
+                            "mime_type": mime,
+                            "data": base64.b64encode(data).decode(),
+                        },
+                    }
+                )
             parts.append({"text": prompt})
 
             text = self._analyze_images_with_retry(client, parts)
@@ -148,17 +153,19 @@ class GeminiProvider(LLMProvider):
     def _transcribe_with_retry(self, client, uploaded, prompt: str) -> str:
         resp = client.models.generate_content(
             model=self._model,
-            contents=[{
-                "role": "user",
-                "parts": [
-                    {
-                        "file_data": {
-                            "mime_type": uploaded.mime_type or "audio/wav",
-                            "file_uri": uploaded.uri,
+            contents=[
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "file_data": {
+                                "mime_type": uploaded.mime_type or "audio/wav",
+                                "file_uri": uploaded.uri,
+                            },
                         },
-                    },
-                    {"text": prompt},
-                ],
-            }],
+                        {"text": prompt},
+                    ],
+                }
+            ],
         )
         return self._extract_text(resp)

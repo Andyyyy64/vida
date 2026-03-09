@@ -48,14 +48,8 @@ class ReportGenerator:
         def _meta(act: str) -> str:
             return self._activity_mgr.get_meta_category(act)
 
-        focus_frames = sum(
-            1 for f in frames
-            if f.activity and _meta(f.activity) == "focus"
-        )
-        active_frames = sum(
-            1 for f in frames
-            if not f.activity or _meta(f.activity) != "idle"
-        )
+        focus_frames = sum(1 for f in frames if f.activity and _meta(f.activity) == "focus")
+        active_frames = sum(1 for f in frames if not f.activity or _meta(f.activity) != "idle")
         focus_pct = (focus_frames / active_frames * 100) if active_frames else 0
 
         # Build activity breakdown
@@ -74,24 +68,17 @@ class ReportGenerator:
         # Collect hourly summaries
         hourly_sums = [s for s in summaries if s.scale in ("1h", "30m")]
         hourly_sums.sort(key=lambda s: s.timestamp)
-        summary_text = "\n".join(
-            f"[{s.timestamp.strftime('%H:%M')}] {s.content}" for s in hourly_sums
-        )
+        summary_text = "\n".join(f"[{s.timestamp.strftime('%H:%M')}] {s.content}" for s in hourly_sums)
 
         # Event summary
         event_text = ""
         if events:
-            event_text = "\n".join(
-                f"[{e.timestamp.strftime('%H:%M')}] {e.event_type}: {e.description}"
-                for e in events
-            )
+            event_text = "\n".join(f"[{e.timestamp.strftime('%H:%M')}] {e.event_type}: {e.description}" for e in events)
 
         # Build prompt for diary-style report
         context_prefix = ""
         if self._context:
-            context_prefix = (
-                f"ユーザー背景情報:\n---\n{self._context}\n---\n\n"
-            )
+            context_prefix = f"ユーザー背景情報:\n---\n{self._context}\n---\n\n"
 
         # Memo for the target date
         memo_section = ""
@@ -103,10 +90,7 @@ class ReportGenerator:
         knowledge_section = ""
         knowledge = self._db.get_latest_knowledge()
         if knowledge:
-            knowledge_section = (
-                "## 知識プロファイル\n"
-                f"{knowledge}\n\n"
-            )
+            knowledge_section = f"## 知識プロファイル\n{knowledge}\n\n"
 
         # Chat messages summary for the day
         chat_section = ""
@@ -115,7 +99,11 @@ class ReportGenerator:
             # Group by channel for readability
             by_channel: dict[str, list] = {}
             for m in chat_msgs:
-                ch_key = f"{m.platform}/{m.guild_name}/{m.channel_name}" if m.guild_name else f"{m.platform}/{m.channel_name}"
+                ch_key = (
+                    f"{m.platform}/{m.guild_name}/{m.channel_name}"
+                    if m.guild_name
+                    else f"{m.platform}/{m.channel_name}"
+                )
                 by_channel.setdefault(ch_key, []).append(m)
             chat_lines = []
             for ch_key, msgs in by_channel.items():
@@ -160,6 +148,5 @@ class ReportGenerator:
             focus_pct=focus_pct,
         )
         report.id = self._db.insert_report(report)
-        log.info("Generated daily report for %s (%d frames, %.0f%% focus)",
-                 target_date, len(frames), focus_pct)
+        log.info("Generated daily report for %s (%d frames, %.0f%% focus)", target_date, len(frames), focus_pct)
         return report

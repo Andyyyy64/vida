@@ -35,11 +35,13 @@ def _send_discord(webhook_url: str, title: str, body: str) -> bool:
     content = body[:4000] if len(body) > 4000 else body
 
     payload = {
-        "embeds": [{
-            "title": title,
-            "description": content,
-            "color": 0x7C3AED,  # purple
-        }]
+        "embeds": [
+            {
+                "title": title,
+                "description": content,
+                "color": 0x7C3AED,  # purple
+            }
+        ]
     }
 
     try:

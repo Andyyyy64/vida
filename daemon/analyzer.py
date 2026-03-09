@@ -93,18 +93,13 @@ class FrameAnalyzer:
         today_memo = self._db.get_memo(date_type.today())
         if today_memo:
             parts.append(
-                "【今日のメモ】ユーザーが記入した本日のメモ:\n"
-                f"「{today_memo}」\n"
-                "※参考情報として活用してください。\n"
+                f"【今日のメモ】ユーザーが記入した本日のメモ:\n「{today_memo}」\n※参考情報として活用してください。\n"
             )
 
         # Inject knowledge profile
         knowledge = self._db.get_latest_knowledge()
         if knowledge:
-            parts.append(
-                "【知識プロファイル】蓄積データから抽出されたユーザーの知識:\n"
-                f"{knowledge}\n"
-            )
+            parts.append(f"【知識プロファイル】蓄積データから抽出されたユーザーの知識:\n{knowledge}\n")
 
         # Inject recent chat messages for context
         chat_since = datetime.now() - timedelta(minutes=30)
@@ -117,8 +112,7 @@ class FrameAnalyzer:
                 ch = f"{m.guild_name}/{m.channel_name}" if m.guild_name else m.channel_name
                 chat_lines.append(f"  [{ts}] {m.platform}/{ch} {sender}: {m.content[:100]}")
             parts.append(
-                "【最近のチャット会話】（直近30分のチャットプラットフォームでの会話）\n"
-                + "\n".join(chat_lines) + "\n"
+                "【最近のチャット会話】（直近30分のチャットプラットフォームでの会話）\n" + "\n".join(chat_lines) + "\n"
                 "※この会話内容も踏まえて、ユーザーの活動を理解してください。\n"
             )
 
@@ -133,8 +127,7 @@ class FrameAnalyzer:
                     lines.append(f"  [{ts}] {act}: {rf.claude_description}")
             if lines:
                 parts.append(
-                    "【直近の観察記録】（時系列の連続性を踏まえて分析してください）\n"
-                    + "\n".join(lines) + "\n"
+                    "【直近の観察記録】（時系列の連続性を踏まえて分析してください）\n" + "\n".join(lines) + "\n"
                 )
 
         # Build image list and prompt
@@ -149,7 +142,7 @@ class FrameAnalyzer:
             img_idx += 1
         for i, ecp in enumerate(extra_cams):
             image_paths.append(ecp)
-            cam_labels.append(f"画像{img_idx}: ウェブカメラ（変化検出{i+1}）")
+            cam_labels.append(f"画像{img_idx}: ウェブカメラ（変化検出{i + 1}）")
             img_idx += 1
         cam_desc = "\n".join(cam_labels) if cam_labels else ""
 
@@ -161,7 +154,7 @@ class FrameAnalyzer:
             img_idx += 1
         for i, esp in enumerate(extra_screens):
             image_paths.append(esp)
-            screen_labels.append(f"画像{img_idx}: PC画面（変化検出{i+1}）")
+            screen_labels.append(f"画像{img_idx}: PC画面（変化検出{i + 1}）")
             img_idx += 1
         screen_desc = "\n".join(screen_labels) if screen_labels else ""
 
@@ -194,13 +187,9 @@ class FrameAnalyzer:
                 "PC画面を眺めているだけの状態と、能動的に操作している状態を区別してください。"
             )
         elif has_cam or extra_cams:
-            parts.append(
-                "写っているものを1-2文で簡潔に日本語で説明してください。"
-            )
+            parts.append("写っているものを1-2文で簡潔に日本語で説明してください。")
         else:
-            parts.append(
-                "表示されている内容を1-2文で簡潔に日本語で説明してください。"
-            )
+            parts.append("表示されている内容を1-2文で簡潔に日本語で説明してください。")
 
         # Foreground window info
         if frame.foreground_window:
@@ -221,20 +210,18 @@ class FrameAnalyzer:
         # Pose detection hint
         if pose_data:
             from daemon.analysis.pose import PoseResult
+
             pose_result = PoseResult.from_json(pose_data)
             hint = pose_result.to_prompt_hint()
             if hint:
                 parts.append(
-                    f"\n【姿勢検出】{hint}\n"
-                    "この姿勢情報も踏まえて、ユーザーの活動状態や集中度を判定してください。"
+                    f"\n【姿勢検出】{hint}\nこの姿勢情報も踏まえて、ユーザーの活動状態や集中度を判定してください。"
                 )
 
         # Presence detection hint
         if has_face is not None:
             if has_face:
-                parts.append(
-                    "\n【センサー情報】顔検出: 人物の存在を確認しました。"
-                )
+                parts.append("\n【センサー情報】顔検出: 人物の存在を確認しました。")
             else:
                 parts.append(
                     "\n【センサー情報】顔検出: 人物は検出されませんでした。"
@@ -266,7 +253,8 @@ class FrameAnalyzer:
                 "\n【アクティビティ分類】\n"
                 "以下の既知カテゴリから最も近いものを選んでください。\n"
                 "**既存カテゴリが使える場合は必ず既存のものを使うこと。新規作成は厳禁。**\n"
-                + "\n".join(category_lines) + "\n"
+                + "\n".join(category_lines)
+                + "\n"
                 "どのカテゴリにも当てはまらない場合のみ、簡潔な日本語で新カテゴリ名を付けてください。\n"
                 "複数の活動が同時に行われている場合は、メインの活動を1つだけ選んでください。\n"
                 "人物の姿勢（横になっている、ソファでくつろいでいる等）が休息を示している場合は、"
@@ -279,7 +267,7 @@ class FrameAnalyzer:
             )
 
         parts.append(
-            '\n以下のJSON形式で出力してください（JSON以外は出力しないこと）:\n'
+            "\n以下のJSON形式で出力してください（JSON以外は出力しないこと）:\n"
             '{"activity": "カテゴリ名", "meta_category": "focus|communication|entertainment|browsing|break|idle", "description": "説明文"}\n'
             "meta_categoryは上記6つのいずれか1つを選んでください。\n"
         )
@@ -361,17 +349,12 @@ class SummaryGenerator:
         today_memo = self._db.get_memo(date_type.today())
         if today_memo:
             parts.append(
-                "【今日のメモ】ユーザーが記入した本日のメモ:\n"
-                f"「{today_memo}」\n"
-                "※参考情報として活用してください。\n"
+                f"【今日のメモ】ユーザーが記入した本日のメモ:\n「{today_memo}」\n※参考情報として活用してください。\n"
             )
         # Knowledge profile
         knowledge = self._db.get_latest_knowledge()
         if knowledge:
-            parts.append(
-                "【知識プロファイル】蓄積データから抽出されたユーザーの知識:\n"
-                f"{knowledge}\n"
-            )
+            parts.append(f"【知識プロファイル】蓄積データから抽出されたユーザーの知識:\n{knowledge}\n")
         # Recent chat messages
         chat_since = datetime.now() - timedelta(hours=1)
         chat_msgs = self._db.get_recent_chat_messages(chat_since, limit=30)
@@ -382,9 +365,7 @@ class SummaryGenerator:
                 sender = "自分" if m.is_self else m.author_name
                 ch = f"{m.guild_name}/{m.channel_name}" if m.guild_name else m.channel_name
                 chat_lines.append(f"  [{ts}] {m.platform}/{ch} {sender}: {m.content[:120]}")
-            parts.append(
-                "【最近のチャット会話】\n" + "\n".join(chat_lines) + "\n"
-            )
+            parts.append("【最近のチャット会話】\n" + "\n".join(chat_lines) + "\n")
         return "\n".join(parts) + ("\n" if parts else "")
 
     def _time_context(self, now: datetime, subs_or_frames: list) -> str:
@@ -432,7 +413,10 @@ class SummaryGenerator:
             return None
 
         summary = Summary(
-            timestamp=now, scale="10m", content=content, frame_count=len(frames),
+            timestamp=now,
+            scale="10m",
+            content=content,
+            frame_count=len(frames),
         )
         summary.id = self._db.insert_summary(summary)
         return summary
@@ -516,7 +500,10 @@ class SummaryGenerator:
 
         total_frames = sum(s.frame_count for s in subs)
         summary = Summary(
-            timestamp=now, scale="24h", content=content, frame_count=total_frames,
+            timestamp=now,
+            scale="24h",
+            content=content,
+            frame_count=total_frames,
         )
         summary.id = self._db.insert_summary(summary)
         return summary
@@ -532,7 +519,10 @@ class SummaryGenerator:
         return "\n".join(lines)
 
     def _aggregate(
-        self, now: datetime, scale: str, subs: list[Summary],
+        self,
+        now: datetime,
+        scale: str,
+        subs: list[Summary],
         since: datetime | None = None,
     ) -> Summary | None:
         ctx = self._time_context(now, subs)
@@ -566,7 +556,10 @@ class SummaryGenerator:
 
         total_frames = sum(s.frame_count for s in subs)
         summary = Summary(
-            timestamp=now, scale=scale, content=content, frame_count=total_frames,
+            timestamp=now,
+            scale=scale,
+            content=content,
+            frame_count=total_frames,
         )
         summary.id = self._db.insert_summary(summary)
         return summary
@@ -576,11 +569,7 @@ class SummaryGenerator:
         lines = []
         for f in frames:
             desc = f.claude_description or "(未分析)"
-            line = (
-                f"[{f.timestamp.strftime('%H:%M:%S')}] "
-                f"明るさ={f.brightness:.0f} 動き={f.motion_score:.3f} "
-                f"| {desc}"
-            )
+            line = f"[{f.timestamp.strftime('%H:%M:%S')}] 明るさ={f.brightness:.0f} 動き={f.motion_score:.3f} | {desc}"
             if f.transcription:
                 line += f"\n  音声: 「{f.transcription}」"
             lines.append(line)
@@ -590,9 +579,7 @@ class SummaryGenerator:
     def _format_summaries(summaries: list[Summary]) -> str:
         lines = []
         for s in summaries:
-            lines.append(
-                f"[{s.timestamp.strftime('%H:%M')}] ({s.scale}, {s.frame_count}フレーム): {s.content}"
-            )
+            lines.append(f"[{s.timestamp.strftime('%H:%M')}] ({s.scale}, {s.frame_count}フレーム): {s.content}")
         return "\n".join(lines)
 
     @staticmethod

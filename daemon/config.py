@@ -84,6 +84,7 @@ class Config:
         # Load .env file (secrets like API keys and tokens)
         try:
             from dotenv import load_dotenv
+
             load_dotenv()
         except ImportError:
             pass

@@ -18,7 +18,10 @@ def _detect_alsa_device() -> str:
     """Auto-detect the best ALSA capture device, preferring non-webcam mics."""
     try:
         result = subprocess.run(
-            ["arecord", "-l"], capture_output=True, text=True, timeout=5,
+            ["arecord", "-l"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode != 0:
             return "plughw:0,0"
@@ -36,10 +39,7 @@ def _detect_alsa_device() -> str:
 
         # Prefer non-webcam devices (webcams usually have "CAM" or "C270" etc.)
         webcam_keywords = {"webcam", "cam", "c270", "c920", "c922", "brio"}
-        non_webcam = [
-            (c, d, n) for c, d, n in cards
-            if not any(kw in n.lower() for kw in webcam_keywords)
-        ]
+        non_webcam = [(c, d, n) for c, d, n in cards if not any(kw in n.lower() for kw in webcam_keywords)]
         if non_webcam:
             card, dev, name = non_webcam[0]
             log.info("Auto-detected audio device: plughw:%d,%d (%s)", card, dev, name)
@@ -204,11 +204,16 @@ class AudioCapture:
         try:
             cmd = [
                 "arecord",
-                "-D", self._alsa_device,
-                "-f", "S16_LE",
-                "-r", str(self._sample_rate),
-                "-c", "1",
-                "-d", str(duration_sec),
+                "-D",
+                self._alsa_device,
+                "-f",
+                "S16_LE",
+                "-r",
+                str(self._sample_rate),
+                "-c",
+                "1",
+                "-d",
+                str(duration_sec),
                 "-q",
                 str(filepath),
             ]
@@ -242,6 +247,7 @@ class AudioCapture:
     def _in_audio_group() -> bool:
         try:
             import grp
+
             audio_gid = grp.getgrnam("audio").gr_gid
             return audio_gid in os.getgroups()
         except KeyError:

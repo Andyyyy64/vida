@@ -81,6 +81,7 @@ def start(ctx, background: bool):
     else:
         console.print("[green]Starting life observer (homelife.ai watching)...[/green]")
         from daemon.daemon import Daemon
+
         daemon = Daemon(config)
         daemon.run()
 
@@ -130,6 +131,7 @@ def status(ctx):
     from daemon.capture.audio import AudioCapture
     from daemon.capture.frame_store import FrameStore
     from daemon.capture.screen import ScreenCapture
+
     store = FrameStore(config.data_dir)
     screen_store = ScreenCapture(config.data_dir)
     audio_store = AudioCapture(config.data_dir)
@@ -138,6 +140,7 @@ def status(ctx):
     disk_mb = disk / (1024 * 1024)
 
     from daemon.storage.database import Database
+
     if config.db_path.exists():
         db = Database(config.db_path)
         db_frames = db.get_frame_count_for_date(date.today())
@@ -238,6 +241,7 @@ def look(ctx):
     )
     db = Database(config.db_path)
     from daemon.activity import ActivityManager
+
     activity_mgr = ActivityManager(db)
     analyzer = FrameAnalyzer(provider, config.data_dir, db, activity_mgr)
     description, activity = analyzer.analyze(frame)
@@ -362,11 +366,13 @@ def summaries(ctx, target_date: str | None, scale: str | None):
         return
 
     for s in sums:
-        console.print(Panel(
-            s.content,
-            title=f"{s.timestamp.strftime('%H:%M')} [{s.scale}] ({s.frame_count} frames)",
-            border_style="blue" if s.scale in ("1h", "6h", "12h", "24h") else "dim",
-        ))
+        console.print(
+            Panel(
+                s.content,
+                title=f"{s.timestamp.strftime('%H:%M')} [{s.scale}] ({s.frame_count} frames)",
+                border_style="blue" if s.scale in ("1h", "6h", "12h", "24h") else "dim",
+            )
+        )
 
 
 @cli.command()
@@ -428,6 +434,7 @@ def report(ctx, target_date: str | None):
     )
     db = Database(config.db_path)
     from daemon.activity import ActivityManager
+
     activity_mgr = ActivityManager(db)
     gen = ReportGenerator(provider, db, config.data_dir, activity_mgr)
     rpt = gen.generate(d)
@@ -460,6 +467,7 @@ def review(ctx, target_date: str | None, as_json: bool):
 
     if as_json:
         import json
+
         package = packager.generate(d)
         click.echo(json.dumps(package, indent=2, ensure_ascii=False))
     else:
@@ -481,7 +489,9 @@ def notify_test(ctx):
     if not config.notify.enabled:
         console.print("[yellow]Notifications are not enabled.[/yellow]")
         console.print("Add to life.toml:")
-        console.print("[dim]  \\[notify]\n  enabled = true\n  provider = \"discord\"  # or \"line\"\n  webhook_url = \"https://discord.com/api/webhooks/...\"[/dim]")
+        console.print(
+            '[dim]  \\[notify]\n  enabled = true\n  provider = "discord"  # or "line"\n  webhook_url = "https://discord.com/api/webhooks/..."[/dim]'
+        )
         return
 
     from daemon.notify import send_notification
@@ -569,10 +579,7 @@ def consolidate_activities(ctx, dry_run: bool):
 
     console.print(f"[dim]Found {len(mappings)} activity categories. Asking LLM for consolidation suggestions...[/dim]")
 
-    acts_lines = [
-        f"- {r['activity']} [{r['meta_category']}] ({r['frame_count']}フレーム)"
-        for r in mappings
-    ]
+    acts_lines = [f"- {r['activity']} [{r['meta_category']}] ({r['frame_count']}フレーム)" for r in mappings]
     prompt = (
         "以下は記録されたアクティビティカテゴリの一覧です（カウントは記録フレーム数）:\n\n"
         + "\n".join(acts_lines)
@@ -651,8 +658,7 @@ def consolidate_activities(ctx, dry_run: bool):
 
 
 @cli.command()
-@click.option("--days", type=int, default=None,
-              help="Override retention_days from config")
+@click.option("--days", type=int, default=None, help="Override retention_days from config")
 @click.pass_context
 def cleanup(ctx, days: int | None):
     """Delete old data beyond the retention period."""

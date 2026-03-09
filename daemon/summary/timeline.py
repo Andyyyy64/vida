@@ -39,21 +39,25 @@ class TimelineBuilder:
         summaries = self._db.get_summaries_for_date(d)
         for s in summaries:
             icon = SCALE_ICONS.get(s.scale, "📝")
-            entries.append(TimelineEntry(
-                time=s.timestamp.strftime("%H:%M"),
-                icon=icon,
-                description=f"[{s.scale}] {s.content[:120]}",
-            ))
+            entries.append(
+                TimelineEntry(
+                    time=s.timestamp.strftime("%H:%M"),
+                    icon=icon,
+                    description=f"[{s.scale}] {s.content[:120]}",
+                )
+            )
 
         # Add events
         events = self._db.get_events_for_date(d)
         for event in events:
             icon = EVENT_ICONS.get(event.event_type, "📌")
-            entries.append(TimelineEntry(
-                time=event.timestamp.strftime("%H:%M"),
-                icon=icon,
-                description=event.description,
-            ))
+            entries.append(
+                TimelineEntry(
+                    time=event.timestamp.strftime("%H:%M"),
+                    icon=icon,
+                    description=event.description,
+                )
+            )
 
         entries.sort(key=lambda e: e.time)
         return entries

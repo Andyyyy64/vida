@@ -18,6 +18,7 @@ _DEFAULT_MODEL = Path(__file__).resolve().parents[2] / "data" / "pose_landmarker
 @dataclass
 class PoseResult:
     """Result of pose detection on a single frame."""
+
     detected: bool = False
     posture: str = ""  # sitting, standing, leaning, lying, unknown
     head_tilt: float = 0.0  # degrees from vertical (0 = upright)
@@ -27,15 +28,18 @@ class PoseResult:
     confidence: float = 0.0
 
     def to_json(self) -> str:
-        return json.dumps({
-            "detected": self.detected,
-            "posture": self.posture,
-            "head_tilt": round(self.head_tilt, 1),
-            "shoulder_angle": round(self.shoulder_angle, 1),
-            "hands_raised": self.hands_raised,
-            "hands_at_desk": self.hands_at_desk,
-            "confidence": round(self.confidence, 2),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "detected": self.detected,
+                "posture": self.posture,
+                "head_tilt": round(self.head_tilt, 1),
+                "shoulder_angle": round(self.shoulder_angle, 1),
+                "hands_raised": self.hands_raised,
+                "hands_at_desk": self.hands_at_desk,
+                "confidence": round(self.confidence, 2),
+            },
+            ensure_ascii=False,
+        )
 
     @staticmethod
     def from_json(s: str) -> PoseResult:
@@ -68,36 +72,51 @@ class PoseResult:
 # Skeleton connections for overlay drawing (pairs of landmark indices)
 _SKELETON_CONNECTIONS = [
     # Torso
-    (11, 12), (11, 23), (12, 24), (23, 24),
+    (11, 12),
+    (11, 23),
+    (12, 24),
+    (23, 24),
     # Left arm
-    (11, 13), (13, 15),
+    (11, 13),
+    (13, 15),
     # Right arm
-    (12, 14), (14, 16),
+    (12, 14),
+    (14, 16),
     # Left leg
-    (23, 25), (25, 27),
+    (23, 25),
+    (25, 27),
     # Right leg
-    (24, 26), (26, 28),
+    (24, 26),
+    (26, 28),
     # Neck (nose to shoulders)
-    (0, 11), (0, 12),
+    (0, 11),
+    (0, 12),
 ]
 
 # Colors (BGR) for different body regions
-_COLOR_TORSO = (200, 180, 0)      # teal
-_COLOR_ARM = (0, 200, 100)        # green
-_COLOR_LEG = (200, 100, 0)        # blue
-_COLOR_NECK = (0, 180, 220)       # yellow
-_COLOR_JOINT = (0, 160, 255)      # orange circles
-_COLOR_LABEL_BG = (30, 30, 30)    # dark background
-_COLOR_LABEL_FG = (220, 220, 220) # light text
+_COLOR_TORSO = (200, 180, 0)  # teal
+_COLOR_ARM = (0, 200, 100)  # green
+_COLOR_LEG = (200, 100, 0)  # blue
+_COLOR_NECK = (0, 180, 220)  # yellow
+_COLOR_JOINT = (0, 160, 255)  # orange circles
+_COLOR_LABEL_BG = (30, 30, 30)  # dark background
+_COLOR_LABEL_FG = (220, 220, 220)  # light text
 
 _CONN_COLORS = {
-    (11, 12): _COLOR_TORSO, (11, 23): _COLOR_TORSO,
-    (12, 24): _COLOR_TORSO, (23, 24): _COLOR_TORSO,
-    (11, 13): _COLOR_ARM, (13, 15): _COLOR_ARM,
-    (12, 14): _COLOR_ARM, (14, 16): _COLOR_ARM,
-    (23, 25): _COLOR_LEG, (25, 27): _COLOR_LEG,
-    (24, 26): _COLOR_LEG, (26, 28): _COLOR_LEG,
-    (0, 11): _COLOR_NECK, (0, 12): _COLOR_NECK,
+    (11, 12): _COLOR_TORSO,
+    (11, 23): _COLOR_TORSO,
+    (12, 24): _COLOR_TORSO,
+    (23, 24): _COLOR_TORSO,
+    (11, 13): _COLOR_ARM,
+    (13, 15): _COLOR_ARM,
+    (12, 14): _COLOR_ARM,
+    (14, 16): _COLOR_ARM,
+    (23, 25): _COLOR_LEG,
+    (25, 27): _COLOR_LEG,
+    (24, 26): _COLOR_LEG,
+    (26, 28): _COLOR_LEG,
+    (0, 11): _COLOR_NECK,
+    (0, 12): _COLOR_NECK,
 }
 
 # Visibility threshold for drawing
@@ -173,9 +192,7 @@ class PoseDetector:
         h, w = frame.shape[:2]
 
         # Cache pixel-space points for overlay drawing
-        self._cached_points = [
-            (int(lm_pt.x * w), int(lm_pt.y * h), lm_pt.visibility) for lm_pt in landmarks
-        ]
+        self._cached_points = [(int(lm_pt.x * w), int(lm_pt.y * h), lm_pt.visibility) for lm_pt in landmarks]
 
         PL = mp.tasks.vision.PoseLandmark
 

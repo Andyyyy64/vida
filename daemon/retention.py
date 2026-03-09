@@ -22,13 +22,11 @@ def cleanup_old_data(db: Database, data_dir: Path, retention_days: int) -> dict:
     cutoff = datetime.now() - timedelta(days=retention_days)
     cutoff_iso = cutoff.isoformat()
 
-    log.info("Retention cleanup: deleting data older than %s (%d days)",
-             cutoff.strftime("%Y-%m-%d"), retention_days)
+    log.info("Retention cleanup: deleting data older than %s (%d days)", cutoff.strftime("%Y-%m-%d"), retention_days)
 
     # --- Collect file paths from old frames before deleting ---
     rows = db._conn.execute(
-        "SELECT path, screen_path, audio_path, screen_extra_paths "
-        "FROM frames WHERE timestamp < ?",
+        "SELECT path, screen_path, audio_path, screen_extra_paths FROM frames WHERE timestamp < ?",
         (cutoff_iso,),
     ).fetchall()
 
@@ -123,8 +121,12 @@ def cleanup_old_data(db: Database, data_dir: Path, retention_days: int) -> dict:
     log.info(
         "Retention cleanup complete: %d frames, %d summaries, %d events, "
         "%d window_events deleted from DB; %d files removed (%.1f MB freed)",
-        frame_count, summary_count, event_count, window_event_count,
-        files_deleted, freed_mb,
+        frame_count,
+        summary_count,
+        event_count,
+        window_event_count,
+        files_deleted,
+        freed_mb,
     )
 
     return {

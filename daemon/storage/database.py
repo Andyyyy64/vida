@@ -205,16 +205,10 @@ class Database:
     def _rebuild_fts_if_needed(self):
         """Rebuild FTS indexes if they are empty but source tables have data."""
         frame_count = self._conn.execute("SELECT COUNT(*) FROM frames").fetchone()[0]
-        fts_count = self._conn.execute(
-            "SELECT COUNT(*) FROM frames_fts"
-        ).fetchone()[0]
+        fts_count = self._conn.execute("SELECT COUNT(*) FROM frames_fts").fetchone()[0]
         if frame_count > 0 and fts_count == 0:
-            self._conn.execute(
-                "INSERT INTO frames_fts(frames_fts) VALUES('rebuild')"
-            )
-            self._conn.execute(
-                "INSERT INTO summaries_fts(summaries_fts) VALUES('rebuild')"
-            )
+            self._conn.execute("INSERT INTO frames_fts(frames_fts) VALUES('rebuild')")
+            self._conn.execute("INSERT INTO summaries_fts(summaries_fts) VALUES('rebuild')")
             self._conn.commit()
 
     def _sync_frame_fts(self, frame_id: int, is_update: bool = False):
@@ -230,17 +224,30 @@ class Database:
                     self._conn.execute(
                         "INSERT INTO frames_fts(frames_fts, rowid, claude_description, transcription, activity, foreground_window) "
                         "VALUES('delete', ?, ?, ?, ?, ?)",
-                        (frame_id, row["claude_description"] or "", row["transcription"] or "", row["activity"] or "", row["foreground_window"] or ""),
+                        (
+                            frame_id,
+                            row["claude_description"] or "",
+                            row["transcription"] or "",
+                            row["activity"] or "",
+                            row["foreground_window"] or "",
+                        ),
                     )
             self._conn.execute(
                 "INSERT INTO frames_fts(rowid, claude_description, transcription, activity, foreground_window) VALUES(?, ?, ?, ?, ?)",
-                (frame_id, row["claude_description"] or "", row["transcription"] or "", row["activity"] or "", row["foreground_window"] or ""),
+                (
+                    frame_id,
+                    row["claude_description"] or "",
+                    row["transcription"] or "",
+                    row["activity"] or "",
+                    row["foreground_window"] or "",
+                ),
             )
 
     def _sync_summary_fts(self, summary_id: int):
         """Sync a single summary to FTS index."""
         row = self._conn.execute(
-            "SELECT content FROM summaries WHERE id=?", (summary_id,),
+            "SELECT content FROM summaries WHERE id=?",
+            (summary_id,),
         ).fetchone()
         if row:
             self._conn.execute(
@@ -255,13 +262,11 @@ class Database:
             return
 
         rows = self._conn.execute(
-            "SELECT activity, COUNT(*) as cnt FROM frames "
-            "WHERE activity != '' GROUP BY activity"
+            "SELECT activity, COUNT(*) as cnt FROM frames WHERE activity != '' GROUP BY activity"
         ).fetchall()
         for r in rows:
             self._conn.execute(
-                "INSERT OR IGNORE INTO activity_mappings (activity, meta_category, frame_count) "
-                "VALUES (?, 'other', ?)",
+                "INSERT OR IGNORE INTO activity_mappings (activity, meta_category, frame_count) VALUES (?, 'other', ?)",
                 (r["activity"], r["cnt"]),
             )
 
@@ -272,16 +277,14 @@ class Database:
     def get_all_activity_mappings(self) -> list[dict]:
         """Get all activity → meta_category mappings, ordered by frame_count DESC."""
         rows = self._conn.execute(
-            "SELECT activity, meta_category, frame_count FROM activity_mappings "
-            "ORDER BY frame_count DESC"
+            "SELECT activity, meta_category, frame_count FROM activity_mappings ORDER BY frame_count DESC"
         ).fetchall()
         return [dict(r) for r in rows]
 
     def get_frequent_activities(self, limit: int = 15) -> list[str]:
         """Get top activities by frame_count."""
         rows = self._conn.execute(
-            "SELECT activity FROM activity_mappings "
-            "WHERE frame_count > 0 ORDER BY frame_count DESC LIMIT ?",
+            "SELECT activity FROM activity_mappings WHERE frame_count > 0 ORDER BY frame_count DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [r["activity"] for r in rows]
@@ -300,16 +303,12 @@ class Database:
 
     def merge_activity(self, old: str, new: str):
         """Rename old activity to new across frames and activity_mappings."""
-        self._conn.execute(
-            "UPDATE frames SET activity=? WHERE activity=?", (new, old)
-        )
+        self._conn.execute("UPDATE frames SET activity=? WHERE activity=?", (new, old))
         old_row = self._conn.execute(
             "SELECT meta_category, frame_count FROM activity_mappings WHERE activity=?", (old,)
         ).fetchone()
         if old_row:
-            existing = self._conn.execute(
-                "SELECT 1 FROM activity_mappings WHERE activity=?", (new,)
-            ).fetchone()
+            existing = self._conn.execute("SELECT 1 FROM activity_mappings WHERE activity=?", (new,)).fetchone()
             if existing:
                 self._conn.execute(
                     "UPDATE activity_mappings SET frame_count = frame_count + ? WHERE activity=?",
@@ -317,9 +316,7 @@ class Database:
                 )
                 self._conn.execute("DELETE FROM activity_mappings WHERE activity=?", (old,))
             else:
-                self._conn.execute(
-                    "UPDATE activity_mappings SET activity=? WHERE activity=?", (new, old)
-                )
+                self._conn.execute("UPDATE activity_mappings SET activity=? WHERE activity=?", (new, old))
         self._conn.commit()
         # Rebuild FTS so renamed activities are searchable under new name
         self._conn.execute("INSERT INTO frames_fts(frames_fts) VALUES('rebuild')")
@@ -330,7 +327,8 @@ class Database:
     def get_memo(self, d: date) -> str:
         """Get memo content for a given date. Returns empty string if none."""
         row = self._conn.execute(
-            "SELECT content FROM memos WHERE date=?", (d.isoformat(),),
+            "SELECT content FROM memos WHERE date=?",
+            (d.isoformat(),),
         ).fetchone()
         return row["content"] if row else ""
 
@@ -355,10 +353,18 @@ class Database:
                 "content, timestamp, metadata) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    msg.platform, msg.platform_message_id, msg.channel_id,
-                    msg.channel_name, msg.guild_id, msg.guild_name,
-                    msg.author_id, msg.author_name, msg.is_self,
-                    msg.content, msg.timestamp.isoformat(), msg.metadata,
+                    msg.platform,
+                    msg.platform_message_id,
+                    msg.channel_id,
+                    msg.channel_name,
+                    msg.guild_id,
+                    msg.guild_name,
+                    msg.author_id,
+                    msg.author_name,
+                    msg.is_self,
+                    msg.content,
+                    msg.timestamp.isoformat(),
+                    msg.metadata,
                 ),
             )
             self._conn.commit()
@@ -380,8 +386,7 @@ class Database:
     def get_recent_chat_messages(self, since: datetime, limit: int = 50) -> list[ChatMessage]:
         """Get recent chat messages across all platforms since a given time."""
         rows = self._conn.execute(
-            "SELECT * FROM chat_messages WHERE timestamp >= ? "
-            "ORDER BY timestamp DESC LIMIT ?",
+            "SELECT * FROM chat_messages WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?",
             (since.isoformat(), limit),
         ).fetchall()
         return [self._row_to_chat_message(r) for r in reversed(rows)]
@@ -392,8 +397,7 @@ class Database:
         end = datetime(d.year, d.month, d.day, 23, 59, 59).isoformat()
         if platform:
             rows = self._conn.execute(
-                "SELECT * FROM chat_messages WHERE timestamp BETWEEN ? AND ? AND platform=? "
-                "ORDER BY timestamp",
+                "SELECT * FROM chat_messages WHERE timestamp BETWEEN ? AND ? AND platform=? ORDER BY timestamp",
                 (start, end, platform),
             ).fetchall()
         else:
@@ -425,23 +429,18 @@ class Database:
 
     def get_latest_knowledge(self) -> str:
         """Get the latest knowledge profile content. Returns empty string if none."""
-        row = self._conn.execute(
-            "SELECT content FROM knowledge ORDER BY id DESC LIMIT 1"
-        ).fetchone()
+        row = self._conn.execute("SELECT content FROM knowledge ORDER BY id DESC LIMIT 1").fetchone()
         return row["content"] if row else ""
 
     def get_latest_knowledge_time(self) -> datetime | None:
         """Get the generation time of the latest knowledge profile."""
-        row = self._conn.execute(
-            "SELECT generated_at FROM knowledge ORDER BY id DESC LIMIT 1"
-        ).fetchone()
+        row = self._conn.execute("SELECT generated_at FROM knowledge ORDER BY id DESC LIMIT 1").fetchone()
         return datetime.fromisoformat(row["generated_at"]) if row else None
 
     def insert_knowledge(self, content: str, source_summary: str = "", period_days: int = 0) -> int:
         """Insert a new knowledge profile. Returns the new row ID."""
         cur = self._conn.execute(
-            "INSERT INTO knowledge (generated_at, content, source_summary, period_days) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO knowledge (generated_at, content, source_summary, period_days) VALUES (?, ?, ?, ?)",
             (datetime.now().isoformat(), content, source_summary, period_days),
         )
         self._conn.commit()
@@ -465,8 +464,7 @@ class Database:
     def get_chat_samples_by_channel(self, channel_name: str, limit: int = 10) -> list[ChatMessage]:
         """Get recent messages from a specific channel."""
         rows = self._conn.execute(
-            "SELECT * FROM chat_messages WHERE channel_name=? "
-            "ORDER BY timestamp DESC LIMIT ?",
+            "SELECT * FROM chat_messages WHERE channel_name=? ORDER BY timestamp DESC LIMIT ?",
             (channel_name, limit),
         ).fetchall()
         return [self._row_to_chat_message(r) for r in reversed(rows)]
@@ -482,8 +480,7 @@ class Database:
     def get_recent_memos(self, limit: int = 14) -> list[dict]:
         """Get recent memos, newest first."""
         rows = self._conn.execute(
-            "SELECT date, content FROM memos WHERE content != '' "
-            "ORDER BY date DESC LIMIT ?",
+            "SELECT date, content FROM memos WHERE content != '' ORDER BY date DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -587,9 +584,7 @@ class Database:
         return row["cnt"]
 
     def get_latest_frame(self) -> Frame | None:
-        row = self._conn.execute(
-            "SELECT * FROM frames ORDER BY timestamp DESC LIMIT 1"
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM frames ORDER BY timestamp DESC LIMIT 1").fetchone()
         return self._row_to_frame(row) if row else None
 
     def get_recent_frames(self, limit: int = 5) -> list[Frame]:
@@ -718,13 +713,15 @@ class Database:
 
     def get_report(self, d: date) -> Report | None:
         row = self._conn.execute(
-            "SELECT * FROM reports WHERE date=?", (d.isoformat(),),
+            "SELECT * FROM reports WHERE date=?",
+            (d.isoformat(),),
         ).fetchone()
         return self._row_to_report(row) if row else None
 
     def get_reports(self, limit: int = 30) -> list[Report]:
         rows = self._conn.execute(
-            "SELECT * FROM reports ORDER BY date DESC LIMIT ?", (limit,),
+            "SELECT * FROM reports ORDER BY date DESC LIMIT ?",
+            (limit,),
         ).fetchall()
         return [self._row_to_report(r) for r in rows]
 

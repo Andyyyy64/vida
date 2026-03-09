@@ -32,15 +32,16 @@ class ClaudeProvider(LLMProvider):
         return self._call(prompt, timeout)
 
     def analyze_images(
-        self, prompt: str, image_paths: list[Path], timeout: int = 120,
+        self,
+        prompt: str,
+        image_paths: list[Path],
+        timeout: int = 120,
     ) -> str | None:
         # Claude Code reads image files via its Read tool.
         # Embed file paths in the prompt so it knows what to read.
         if not image_paths:
             return self._call(prompt, timeout)
-        refs = "\n".join(
-            f"画像{i}のファイルパス: {p.resolve()}" for i, p in enumerate(image_paths, 1)
-        )
+        refs = "\n".join(f"画像{i}のファイルパス: {p.resolve()}" for i, p in enumerate(image_paths, 1))
         full = f"{prompt}\n\n上記の分析対象画像:\n{refs}\nこれらの画像ファイルを読んでください。"
         return self._call(full, timeout)
 
@@ -63,11 +64,18 @@ class ClaudeProvider(LLMProvider):
     def _call_with_retry(self, claude: str, prompt: str, timeout: int) -> str | None:
         out_path = err_path = None
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".txt", delete=False,
-            ) as out_f, tempfile.NamedTemporaryFile(
-                mode="w", suffix=".txt", delete=False,
-            ) as err_f:
+            with (
+                tempfile.NamedTemporaryFile(
+                    mode="w",
+                    suffix=".txt",
+                    delete=False,
+                ) as out_f,
+                tempfile.NamedTemporaryFile(
+                    mode="w",
+                    suffix=".txt",
+                    delete=False,
+                ) as err_f,
+            ):
                 out_path, err_path = out_f.name, err_f.name
 
             with open(out_path, "w") as out_fh, open(err_path, "w") as err_fh:

@@ -7,9 +7,7 @@ import numpy as np
 class MotionDetector:
     def __init__(self, threshold: float = 0.02):
         self._threshold = threshold
-        self._bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-            history=500, varThreshold=50, detectShadows=False
-        )
+        self._bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=False)
 
     def analyze(self, frame: np.ndarray) -> float:
         """Return motion score (0.0 - 1.0) based on foreground pixel ratio."""
@@ -24,6 +22,4 @@ class MotionDetector:
         return score > self._threshold
 
     def reset(self):
-        self._bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-            history=500, varThreshold=50, detectShadows=False
-        )
+        self._bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=False)

@@ -96,8 +96,12 @@ class PresenceDetector:
         if self._state != prev_state:
             log.info(
                 "Presence: %s -> %s (ticks=%d, bright=%.0f, motion=%.3f, face=%s)",
-                prev_state.value, self._state.value,
-                self._absent_ticks, brightness, motion_score, has_face,
+                prev_state.value,
+                self._state.value,
+                self._absent_ticks,
+                brightness,
+                motion_score,
+                has_face,
             )
 
         return self._state
