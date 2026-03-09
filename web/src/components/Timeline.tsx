@@ -1,7 +1,9 @@
 import { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Frame, Event } from '../lib/types';
 import type { SummaryTimeRange } from './SummaryPanel';
 import { activityColor } from '../lib/activity';
+import { LOCALE_MAP } from '../i18n';
 
 interface Props {
   frames: Frame[];
@@ -13,7 +15,9 @@ interface Props {
 }
 
 export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading, highlightRange }: Props) {
+  const { t, i18n } = useTranslation();
   const selectedRef = useRef<HTMLDivElement>(null);
+  const locale = LOCALE_MAP[i18n.language] || LOCALE_MAP[i18n.language.split('-')[0]] || 'en-US';
 
   useEffect(() => {
     if (selectedRef.current) {
@@ -24,7 +28,7 @@ export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading
   if (loading) {
     return (
       <div className="timeline">
-        <div className="timeline-empty">読み込み中...</div>
+        <div className="timeline-empty">{t('common.loading')}</div>
       </div>
     );
   }
@@ -32,7 +36,7 @@ export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading
   if (frames.length === 0) {
     return (
       <div className="timeline">
-        <div className="timeline-empty">この日のフレームはありません</div>
+        <div className="timeline-empty">{t('timeline.noFrames')}</div>
       </div>
     );
   }
@@ -80,7 +84,7 @@ export function Timeline({ frames, events, selectedFrame, onSelectFrame, loading
                     opacity: highlightRange && !isHighlighted ? 0.25 : undefined,
                   }}
                   onClick={() => onSelectFrame(frame)}
-                  title={`${new Date(frame.timestamp).toLocaleTimeString('ja-JP')} - ${frame.claude_description || frame.scene_type}`}
+                  title={`${new Date(frame.timestamp).toLocaleTimeString(locale)} - ${frame.claude_description || frame.scene_type}`}
                 />
               );
             })}

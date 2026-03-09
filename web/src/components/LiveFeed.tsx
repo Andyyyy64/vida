@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const BASE_URL = `${window.location.protocol}//${window.location.hostname}:3002`;
 const STREAM_URL = `${BASE_URL}/stream`;
@@ -6,6 +7,7 @@ const STREAM_POSE_URL = `${BASE_URL}/stream/pose`;
 const HEALTH_URL = `${BASE_URL}/health`;
 
 export function LiveFeed() {
+  const { t } = useTranslation();
   const [live, setLive] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showPose, setShowPose] = useState(false);
@@ -13,8 +15,6 @@ export function LiveFeed() {
   const handleClose = useCallback(() => setExpanded(false), []);
 
   // Poll /health every 3s for reliable LIVE/OFFLINE detection.
-  // img.onLoad is unreliable for MJPEG: the server may accept the connection
-  // but not send frames (e.g. camera not open), leaving the img in limbo.
   useEffect(() => {
     const check = async () => {
       try {
@@ -50,11 +50,11 @@ export function LiveFeed() {
       <div className="live-feed" onClick={() => live && setExpanded(true)} style={{ cursor: live ? 'pointer' : 'default' }}>
         <div className={`live-indicator ${live ? 'active' : ''}`}>
           <span className={`live-dot ${live ? '' : 'offline'}`} />
-          {live ? 'LIVE' : 'OFFLINE'}
+          {live ? t('common.live') : t('common.offline')}
         </div>
         <img
           src={STREAM_URL}
-          alt="Live feed"
+          alt={t('common.live')}
           className="live-image"
           style={{ display: live ? 'block' : 'none' }}
         />
@@ -65,13 +65,13 @@ export function LiveFeed() {
             <div className="live-modal-header">
               <div className={`live-indicator ${live ? 'active' : ''}`}>
                 <span className={`live-dot ${live ? '' : 'offline'}`} />
-                LIVE
+                {t('common.live')}
               </div>
               <div className="live-modal-controls">
                 <button
                   className={`live-pose-toggle ${showPose ? 'active' : ''}`}
                   onClick={() => setShowPose(!showPose)}
-                  title="Toggle pose skeleton overlay"
+                  title={t('liveFeed.togglePose')}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="8" cy="3" r="2" stroke="currentColor" strokeWidth="1.5" fill="none"/>
@@ -80,7 +80,7 @@ export function LiveFeed() {
                     <line x1="8" y1="10" x2="5" y2="14" stroke="currentColor" strokeWidth="1.5"/>
                     <line x1="8" y1="10" x2="11" y2="14" stroke="currentColor" strokeWidth="1.5"/>
                   </svg>
-                  Pose
+                  {t('liveFeed.pose')}
                 </button>
                 <button className="live-modal-close" onClick={handleClose}>
                   &times;
@@ -89,7 +89,7 @@ export function LiveFeed() {
             </div>
             <img
               src={modalStreamUrl}
-              alt="Live feed"
+              alt={t('common.live')}
               className="live-modal-image"
             />
           </div>

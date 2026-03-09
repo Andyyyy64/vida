@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   framePath: string;
@@ -9,19 +10,20 @@ interface Props {
 type ViewTab = { label: string; path: string };
 
 export function FrameViewer({ framePath, screenPath, screenExtraPaths }: Props) {
+  const { t } = useTranslation();
   const tabs: ViewTab[] = [];
 
-  tabs.push({ label: 'カメラ', path: framePath });
+  tabs.push({ label: t('detail.camera'), path: framePath });
 
   if (screenPath) {
-    tabs.push({ label: '画面 0:00', path: screenPath });
+    tabs.push({ label: `${t('detail.screen')} 0:00`, path: screenPath });
   }
 
   if (screenExtraPaths) {
     const extras = screenExtraPaths.split(',').filter(Boolean);
     extras.forEach((p, i) => {
       const sec = (i + 1) * 10;
-      tabs.push({ label: `画面 0:${String(sec).padStart(2, '0')}`, path: p });
+      tabs.push({ label: `${t('detail.screen')} 0:${String(sec).padStart(2, '0')}`, path: p });
     });
   }
 

@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Frame } from '../lib/types';
 import { activityColor } from '../lib/activity';
 import { AudioPlayer } from './AudioPlayer';
+import { LOCALE_MAP } from '../i18n';
 
 interface Props {
   frame: Frame | null;
 }
 
 export function DetailPanel({ frame }: Props) {
+  const { t, i18n } = useTranslation();
   const [modalSrc, setModalSrc] = useState<string | null>(null);
+  const locale = LOCALE_MAP[i18n.language] || LOCALE_MAP[i18n.language.split('-')[0]] || 'en-US';
 
   const closeModal = useCallback(() => setModalSrc(null), []);
 
@@ -24,7 +28,7 @@ export function DetailPanel({ frame }: Props) {
   if (!frame) {
     return (
       <div className="detail-panel">
-        <div className="panel-empty">フレームを選択してください</div>
+        <div className="panel-empty">{t('detail.selectFrame')}</div>
       </div>
     );
   }
@@ -35,22 +39,21 @@ export function DetailPanel({ frame }: Props) {
   // Collect screen paths
   const screenPaths: { label: string; path: string }[] = [];
   if (frame.screen_path) {
-    screenPaths.push({ label: 'メイン', path: frame.screen_path });
+    screenPaths.push({ label: t('detail.main'), path: frame.screen_path });
   }
   if (frame.screen_extra_paths) {
     frame.screen_extra_paths.split(',').filter(Boolean).forEach((p, i) => {
-      screenPaths.push({ label: `変化${i + 1}`, path: p });
+      screenPaths.push({ label: t('detail.change', { num: i + 1 }), path: p });
     });
   }
 
   return (
     <div className="detail-panel">
       <div className="panel-header">
-        {time.toLocaleTimeString('ja-JP')}
+        {time.toLocaleTimeString(locale)}
         <span className="detail-id">#{frame.id}</span>
       </div>
 
-      {/* 総合分析 */}
       {frame.claude_description && (
         <div className="detail-analysis">
           {frame.activity && (
@@ -62,31 +65,27 @@ export function DetailPanel({ frame }: Props) {
         </div>
       )}
 
-      {/* カメラ */}
       {frame.path && (
-        <DetailSection title="カメラ">
+        <DetailSection title={t('detail.camera')}>
           <div className="detail-image-wrap" onClick={() => setModalSrc(`/media/${frame.path}`)}>
-            <img src={`/media/${frame.path}`} alt="カメラ" className="detail-img" />
+            <img src={`/media/${frame.path}`} alt={t('detail.camera')} className="detail-img" />
           </div>
         </DetailSection>
       )}
 
-      {/* 画面 */}
       {screenPaths.length > 0 && (
-        <DetailSection title="画面">
+        <DetailSection title={t('detail.screen')}>
           <ScreenStrip screens={screenPaths} onClickImage={setModalSrc} />
         </DetailSection>
       )}
 
-      {/* 音声 */}
       {frame.audio_path && (
-        <DetailSection title="音声">
+        <DetailSection title={t('detail.audio')}>
           <AudioPlayer audioPath={frame.audio_path} transcription={frame.transcription} />
         </DetailSection>
       )}
 
-      {/* メタデータ */}
-      <DetailSection title="メタデータ">
+      <DetailSection title={t('detail.metadata')}>
         <div className="detail-meta">
           {frame.foreground_window && (() => {
             const sep = frame.foreground_window.indexOf('|');
@@ -95,12 +94,12 @@ export function DetailPanel({ frame }: Props) {
             return (
               <>
                 <div className="meta-row">
-                  <span className="meta-key">アプリ</span>
+                  <span className="meta-key">{t('detail.app')}</span>
                   <span className="meta-value">{proc}</span>
                 </div>
                 {title && (
                   <div className="meta-row">
-                    <span className="meta-key">ウィンドウ</span>
+                    <span className="meta-key">{t('detail.window')}</span>
                     <span className="meta-value" style={{ fontSize: 11 }}>{title}</span>
                   </div>
                 )}
@@ -108,24 +107,23 @@ export function DetailPanel({ frame }: Props) {
             );
           })()}
           <div className="meta-row">
-            <span className="meta-key">シーン</span>
+            <span className="meta-key">{t('detail.scene')}</span>
             <span className={`meta-value scene-${frame.scene_type}`}>{frame.scene_type}</span>
           </div>
           <div className="meta-row">
-            <span className="meta-key">動き</span>
+            <span className="meta-key">{t('detail.motion')}</span>
             <span className="meta-value">{(frame.motion_score * 100).toFixed(1)}%</span>
           </div>
           <div className="meta-row">
-            <span className="meta-key">明るさ</span>
+            <span className="meta-key">{t('detail.brightness')}</span>
             <span className="meta-value">{frame.brightness.toFixed(0)}</span>
           </div>
         </div>
       </DetailSection>
 
-      {/* Image modal */}
       {modalSrc && (
         <div className="img-modal-overlay" onClick={closeModal}>
-          <img src={modalSrc} alt="拡大" className="img-modal-image" onClick={(e) => e.stopPropagation()} />
+          <img src={modalSrc} alt={t('detail.enlarge')} className="img-modal-image" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>
@@ -145,6 +143,7 @@ function ScreenStrip({ screens, onClickImage }: {
   screens: { label: string; path: string }[];
   onClickImage: (src: string) => void;
 }) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState(0);
 
   return (
@@ -152,7 +151,7 @@ function ScreenStrip({ screens, onClickImage }: {
       <div className="screen-strip-main" onClick={() => onClickImage(`/media/${screens[selected].path}`)}>
         <img
           src={`/media/${screens[selected].path}`}
-          alt={`画面 ${screens[selected].label}`}
+          alt={t('detail.screenLabel', { label: screens[selected].label })}
           className="detail-img"
         />
       </div>

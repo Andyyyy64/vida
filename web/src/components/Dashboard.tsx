@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/date';
-import { META_COLORS, META_LABELS } from '../lib/activity';
+import { META_COLORS, META_LABEL_KEYS } from '../lib/activity';
+import { LOCALE_MAP } from '../i18n';
 import type { RangeStats, Session, ActivityStats, AppStat } from '../lib/types';
 
 interface Props {
@@ -30,9 +32,9 @@ function getWeekRange(date: string): [string, string] {
 }
 
 // Simple pie chart
-function PieChart({ data }: { data: { label: string; value: number; color: string }[] }) {
+function PieChart({ data, noDataLabel }: { data: { label: string; value: number; color: string }[]; noDataLabel: string }) {
   const total = data.reduce((s, d) => s + d.value, 0);
-  if (total === 0) return <div className="panel-empty">No data</div>;
+  if (total === 0) return <div className="panel-empty">{noDataLabel}</div>;
 
   let currentAngle = -Math.PI / 2;
   const slices = data.map((d) => {
@@ -76,8 +78,8 @@ function PieChart({ data }: { data: { label: string; value: number; color: strin
 }
 
 // Stacked bar chart for weekly view
-function WeeklyChart({ rangeStats }: { rangeStats: RangeStats }) {
-  if (rangeStats.days.length === 0) return <div className="panel-empty">No data</div>;
+function WeeklyChart({ rangeStats, noDataLabel }: { rangeStats: RangeStats; noDataLabel: string }) {
+  if (rangeStats.days.length === 0) return <div className="panel-empty">{noDataLabel}</div>;
 
   const maxSec = Math.max(...rangeStats.days.map((d) => d.totalSec), 1);
   const metas = Object.keys(META_COLORS);
@@ -111,16 +113,16 @@ function WeeklyChart({ rangeStats }: { rangeStats: RangeStats }) {
 }
 
 // Session timeline (gantt-style, single row)
-function SessionTimeline({ sessions }: { sessions: Session[] }) {
-  if (sessions.length === 0) return <div className="panel-empty">No sessions</div>;
+function SessionTimeline({ sessions, noSessionsLabel, locale }: { sessions: Session[]; noSessionsLabel: string; locale: string }) {
+  if (sessions.length === 0) return <div className="panel-empty">{noSessionsLabel}</div>;
 
   const totalSec = sessions.reduce((s, ses) => s + ses.durationSec, 0) || 1;
 
   // Time axis labels
   const firstTime = new Date(sessions[0].startTime);
   const lastTime = new Date(sessions[sessions.length - 1].endTime);
-  const startLabel = firstTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-  const endLabel = lastTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  const startLabel = firstTime.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const endLabel = lastTime.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -166,7 +168,7 @@ function SessionTimeline({ sessions }: { sessions: Session[] }) {
             <span style={{ color: 'var(--text-secondary)', minWidth: 100 }}>{s.activity}</span>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{formatDuration(s.durationSec)}</span>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 10 }}>
-              {new Date(s.startTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}–{new Date(s.endTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+              {new Date(s.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}–{new Date(s.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
         ))}
@@ -176,10 +178,12 @@ function SessionTimeline({ sessions }: { sessions: Session[] }) {
 }
 
 export function Dashboard({ date, onClose }: Props) {
+  const { t, i18n } = useTranslation();
   const [rangeStats, setRangeStats] = useState<RangeStats | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [dayActivities, setDayActivities] = useState<ActivityStats | null>(null);
   const [appStats, setAppStats] = useState<AppStat[]>([]);
+  const locale = LOCALE_MAP[i18n.language] || LOCALE_MAP[i18n.language.split('-')[0]] || 'en-US';
 
   useEffect(() => {
     const [weekFrom, weekTo] = getWeekRange(date);
@@ -192,7 +196,7 @@ export function Dashboard({ date, onClose }: Props) {
   // Today's meta-category pie data
   const todayMeta = rangeStats?.days.find((d) => d.date === date)?.metaCategories || {};
   const pieData = Object.entries(META_COLORS).map(([meta, color]) => ({
-    label: META_LABELS[meta] || meta,
+    label: META_LABEL_KEYS[meta] ? t(META_LABEL_KEYS[meta]) : meta,
     value: todayMeta[meta] || 0,
     color,
   })).filter((d) => d.value > 0);
@@ -220,32 +224,32 @@ export function Dashboard({ date, onClose }: Props) {
     <div className="dashboard-overlay">
       <div className="dashboard">
         <div className="dashboard-header">
-          <h2 className="dashboard-title">Dashboard</h2>
+          <h2 className="dashboard-title">{t('dashboard.title')}</h2>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 13 }}>{date}</span>
-          <button className="dashboard-close" onClick={onClose}>Close</button>
+          <button className="dashboard-close" onClick={onClose}>{t('common.close')}</button>
         </div>
 
         <div className="dashboard-grid">
           {/* Focus score */}
           <div className="dashboard-card">
-            <div className="dashboard-card-title">Focus Score</div>
+            <div className="dashboard-card-title">{t('dashboard.focusScore')}</div>
             <div style={{ fontSize: 36, fontFamily: 'var(--font-mono)', color: focusPct >= 50 ? '#60a860' : '#d0a840' }}>
               {focusPct}%
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {formatDuration((rangeStats?.days.find((d) => d.date === date)?.totalSec || 0))} tracked
+              {formatDuration((rangeStats?.days.find((d) => d.date === date)?.totalSec || 0))} {t('common.tracked')}
             </div>
           </div>
 
           {/* Meta-category breakdown */}
           <div className="dashboard-card">
-            <div className="dashboard-card-title">Category Breakdown</div>
-            <PieChart data={pieData} />
+            <div className="dashboard-card-title">{t('dashboard.categoryBreakdown')}</div>
+            <PieChart data={pieData} noDataLabel={t('common.noData')} />
           </div>
 
           {/* Activity list */}
           <div className="dashboard-card">
-            <div className="dashboard-card-title">Activities</div>
+            <div className="dashboard-card-title">{t('dashboard.activities')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {activityData.map((a, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
@@ -262,7 +266,7 @@ export function Dashboard({ date, onClose }: Props) {
           {/* App usage */}
           {appStats.length > 0 && (
             <div className="dashboard-card">
-              <div className="dashboard-card-title">App Usage</div>
+              <div className="dashboard-card-title">{t('dashboard.appUsage')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {appStats.slice(0, 10).map((a, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
@@ -279,13 +283,13 @@ export function Dashboard({ date, onClose }: Props) {
 
           {/* Weekly chart */}
           <div className="dashboard-card">
-            <div className="dashboard-card-title">This Week</div>
-            {rangeStats && <WeeklyChart rangeStats={rangeStats} />}
+            <div className="dashboard-card-title">{t('dashboard.thisWeek')}</div>
+            {rangeStats && <WeeklyChart rangeStats={rangeStats} noDataLabel={t('common.noData')} />}
             <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
               {Object.entries(META_COLORS).map(([meta, color]) => (
                 <div key={meta} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
-                  <span style={{ color: 'var(--text-muted)' }}>{META_LABELS[meta]}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{META_LABEL_KEYS[meta] ? t(META_LABEL_KEYS[meta]) : meta}</span>
                 </div>
               ))}
             </div>
@@ -293,8 +297,8 @@ export function Dashboard({ date, onClose }: Props) {
 
           {/* Session timeline */}
           <div className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-            <div className="dashboard-card-title">Sessions</div>
-            <SessionTimeline sessions={sessions} />
+            <div className="dashboard-card-title">{t('dashboard.sessions')}</div>
+            <SessionTimeline sessions={sessions} noSessionsLabel={t('dashboard.noSessions')} locale={locale} />
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import type { Frame, Summary } from '../lib/types';
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function SearchPanel({ onSelectFrame, onDateChange }: Props) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [frames, setFrames] = useState<Frame[]>([]);
   const [summaries, setSummaries] = useState<Summary[]>([]);
@@ -57,12 +59,12 @@ export function SearchPanel({ onSelectFrame, onDateChange }: Props) {
         <input
           type="text"
           className="search-input"
-          placeholder="Search frames & summaries..."
+          placeholder={t('search.placeholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
         />
-        <button className="search-btn" onClick={doSearch} disabled={searching} aria-label="Search">
+        <button className="search-btn" onClick={doSearch} disabled={searching} aria-label={t('search.searchButton')}>
           {searching ? '...' : (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>)}
         </button>
       </div>
@@ -70,7 +72,7 @@ export function SearchPanel({ onSelectFrame, onDateChange }: Props) {
       {searched && (
         <div className="search-results">
           <div className="search-results-count">
-            {searching ? 'Searching...' : `${total} results`}
+            {searching ? t('search.searching') : t('common.results_count', { count: total })}
           </div>
 
           {frames.map((f) => (
@@ -88,7 +90,7 @@ export function SearchPanel({ onSelectFrame, onDateChange }: Props) {
                 )}
               </div>
               <div className="search-result-text">
-                {f.claude_description || f.transcription || '(no description)'}
+                {f.claude_description || f.transcription || t('search.noDescription')}
               </div>
             </div>
           ))}
@@ -103,7 +105,7 @@ export function SearchPanel({ onSelectFrame, onDateChange }: Props) {
                 <span className="search-result-time">
                   {s.timestamp.slice(0, 16).replace('T', ' ')}
                 </span>
-                <span className="search-result-activity">{s.scale} summary</span>
+                <span className="search-result-activity">{t('summary.scaleSummary', { scale: s.scale })}</span>
               </div>
               <div className="search-result-text">{s.content}</div>
             </div>

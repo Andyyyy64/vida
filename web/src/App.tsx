@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Header } from './components/Header';
 import { SummaryPanel } from './components/SummaryPanel';
 import { SearchPanel } from './components/SearchPanel';
@@ -30,6 +31,7 @@ function useIsMobile() {
 }
 
 export default function App() {
+  const { t } = useTranslation();
   const [date, setDate] = useState(formatDate(new Date()));
   const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
   const [stats, setStats] = useState<DayStats | null>(null);
@@ -56,10 +58,10 @@ export default function App() {
     api.stats.dates().then(setAvailableDates).catch(console.error);
     api.status().then((s) => {
       const w: string[] = [];
-      if (!s.camera) w.push('Camera not available — running without webcam capture');
+      if (!s.camera) w.push('warnings.noCamera');
       setWarnings(w);
     }).catch(() => {
-      setWarnings(['Daemon is not running']);
+      setWarnings(['warnings.daemonNotRunning']);
     });
   }, []);
 
@@ -144,7 +146,7 @@ export default function App() {
     <div className="app">
       {warnings.length > 0 && (
         <div className="warning-banner">
-          {warnings.map((w, i) => <span key={i}>{w}</span>)}
+          {warnings.map((w, i) => <span key={i}>{t(w)}</span>)}
         </div>
       )}
       <Header
@@ -161,19 +163,19 @@ export default function App() {
             className={`mobile-nav-btn ${mobilePanel === 'left' ? 'active' : ''}`}
             onClick={() => setMobilePanel('left')}
           >
-            Summaries
+            {t('nav.summaries')}
           </button>
           <button
             className={`mobile-nav-btn ${mobilePanel === 'timeline' ? 'active' : ''}`}
             onClick={() => setMobilePanel('timeline')}
           >
-            Timeline
+            {t('nav.timeline')}
           </button>
           <button
             className={`mobile-nav-btn ${mobilePanel === 'detail' ? 'active' : ''}`}
             onClick={() => setMobilePanel('detail')}
           >
-            Detail
+            {t('nav.detail')}
           </button>
         </div>
       )}
@@ -229,7 +231,7 @@ export default function App() {
       <button
         className="settings-gear-btn"
         onClick={() => setShowSettings(true)}
-        title="Settings"
+        title={t('settings.title')}
       >
         ⚙
       </button>

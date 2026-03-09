@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Summary } from '../lib/types';
+import { LOCALE_MAP } from '../i18n';
 
 export interface SummaryTimeRange {
   from: string;
@@ -41,8 +43,10 @@ function rangesEqual(a: SummaryTimeRange | null, b: SummaryTimeRange): boolean {
 }
 
 export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Props) {
+  const { t, i18n } = useTranslation();
   const [expandedScale, setExpandedScale] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const locale = LOCALE_MAP[i18n.language] || LOCALE_MAP[i18n.language.split('-')[0]] || 'en-US';
 
   const toggleExpanded = (id: number) => {
     setExpandedIds((prev) => {
@@ -61,7 +65,7 @@ export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Prop
 
   return (
     <div className="summary-panel">
-      <div className="panel-header">サマリー</div>
+      <div className="panel-header">{t('summary.title')}</div>
       {SCALE_ORDER.map((scale) => {
         const items = byScale.get(scale) || [];
         if (items.length === 0) return null;
@@ -90,12 +94,12 @@ export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Prop
                       onClick={() => onSummaryClick(range)}
                     >
                       <div className="summary-item-time">
-                        {new Date(range.from).toLocaleTimeString('ja-JP', {
+                        {new Date(range.from).toLocaleTimeString(locale, {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
                         {' — '}
-                        {new Date(range.to).toLocaleTimeString('ja-JP', {
+                        {new Date(range.to).toLocaleTimeString(locale, {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
@@ -106,7 +110,7 @@ export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Prop
                         {s.content}
                       </div>
                       <div className="summary-item-footer">
-                        <span className="summary-item-meta">{s.frame_count} frames</span>
+                        <span className="summary-item-meta">{t('common.frames_count', { count: s.frame_count })}</span>
                         <button
                           className="summary-expand-btn"
                           onClick={(e) => {
@@ -114,7 +118,7 @@ export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Prop
                             toggleExpanded(s.id);
                           }}
                         >
-                          {isContentExpanded ? '折りたたむ' : 'もっと見る'}
+                          {isContentExpanded ? t('summary.collapse') : t('summary.showMore')}
                         </button>
                       </div>
                     </div>
@@ -125,7 +129,7 @@ export function SummaryPanel({ summaries, onSummaryClick, highlightRange }: Prop
           </div>
         );
       })}
-      {summaries.length === 0 && <div className="panel-empty">サマリーなし</div>}
+      {summaries.length === 0 && <div className="panel-empty">{t('summary.noSummaries')}</div>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SettingsData {
   llm: { provider: string; gemini_model: string; claude_model: string };
@@ -21,6 +22,7 @@ interface DeviceList   { cameras: CameraDevice[]; audio: AudioDevice[]; error?: 
 interface Props { onClose: () => void }
 
 export function Settings({ onClose }: Props) {
+  const { t, i18n } = useTranslation();
   const [data, setData]           = useState<SettingsData | null>(null);
   const [devices, setDevices]     = useState<DeviceList | null>(null);
   const [devLoading, setDevLoading] = useState(true);
@@ -43,7 +45,7 @@ export function Settings({ onClose }: Props) {
         for (const k of Object.keys(s.env_masked)) init[k] = '';
         setEnvInputs(init);
       })
-      .catch(() => setError('Failed to load settings'))
+      .catch(() => setError(t('settings.failedToLoad')))
       .finally(() => setDevLoading(false));
   }, []);
 
@@ -100,6 +102,10 @@ export function Settings({ onClose }: Props) {
   const cams = devices?.cameras ?? [];
   const mics = devices?.audio ?? [];
 
+  const toggleLang = () => {
+    i18n.changeLanguage(i18n.language === 'ja' ? 'en' : 'ja');
+  };
+
   return (
     <div
       className="settings-overlay"
@@ -107,27 +113,37 @@ export function Settings({ onClose }: Props) {
     >
       <div className="settings-modal">
         <div className="settings-header">
-          <span className="settings-title">Settings</span>
-          <button className="settings-close" onClick={onClose}>✕ Close</button>
+          <span className="settings-title">{t('settings.title')}</span>
+          <button className="settings-close" onClick={onClose}>{t('settings.closeButton')}</button>
         </div>
 
         {!data ? (
-          <div className="settings-loading">{error || 'Loading…'}</div>
+          <div className="settings-loading">{error || t('common.loading')}</div>
         ) : (
           <div className="settings-body">
 
+            {/* ── Language ── */}
+            <section className="settings-section">
+              <div className="settings-field settings-field--toggle">
+                <label>Language / 言語</label>
+                <button className="settings-toggle on" onClick={toggleLang}>
+                  {i18n.language === 'ja' ? '日本語' : 'English'}
+                </button>
+              </div>
+            </section>
+
             {/* ── LLM ── */}
             <section className="settings-section">
-              <h3 className="settings-section-title">LLM</h3>
+              <h3 className="settings-section-title">{t('settings.llm.title')}</h3>
               <div className="settings-field">
-                <label>Provider</label>
+                <label>{t('settings.llm.provider')}</label>
                 <select value={data.llm.provider} onChange={(e) => setLlm('provider', e.target.value)}>
                   <option value="gemini">Gemini</option>
                   <option value="claude">Claude</option>
                 </select>
               </div>
               <div className="settings-field">
-                <label>Gemini model</label>
+                <label>{t('settings.llm.geminiModel')}</label>
                 <input
                   value={data.llm.gemini_model}
                   onChange={(e) => setLlm('gemini_model', e.target.value)}
@@ -135,7 +151,7 @@ export function Settings({ onClose }: Props) {
                 />
               </div>
               <div className="settings-field">
-                <label>Claude model</label>
+                <label>{t('settings.llm.claudeModel')}</label>
                 <input
                   value={data.llm.claude_model}
                   onChange={(e) => setLlm('claude_model', e.target.value)}
@@ -146,13 +162,13 @@ export function Settings({ onClose }: Props) {
 
             {/* ── Capture ── */}
             <section className="settings-section">
-              <h3 className="settings-section-title">Capture</h3>
+              <h3 className="settings-section-title">{t('settings.capture.title')}</h3>
 
               {/* Camera */}
               <div className="settings-field">
                 <label>
-                  Camera
-                  {devLoading && <span className="settings-hint"> (detecting…)</span>}
+                  {t('settings.capture.camera')}
+                  {devLoading && <span className="settings-hint"> ({t('settings.capture.detecting')})</span>}
                   {devices?.error && <span className="settings-hint"> — {devices.error}</span>}
                 </label>
                 {cams.length > 0 ? (
@@ -174,7 +190,7 @@ export function Settings({ onClose }: Props) {
                       placeholder="0"
                     />
                     <span className="settings-hint-inline">
-                      {devLoading ? 'Detecting cameras…' : 'No cameras found'}
+                      {devLoading ? t('settings.capture.detectingCameras') : t('settings.capture.noCameras')}
                     </span>
                   </div>
                 )}
@@ -182,7 +198,7 @@ export function Settings({ onClose }: Props) {
 
               {/* Capture interval */}
               <div className="settings-field">
-                <label>Capture interval (sec)</label>
+                <label>{t('settings.capture.interval')}</label>
                 <input
                   type="number"
                   min={5}
@@ -194,8 +210,8 @@ export function Settings({ onClose }: Props) {
               {/* Microphone */}
               <div className="settings-field">
                 <label>
-                  Microphone
-                  {devLoading && <span className="settings-hint"> (detecting…)</span>}
+                  {t('settings.capture.microphone')}
+                  {devLoading && <span className="settings-hint"> ({t('settings.capture.detecting')})</span>}
                 </label>
                 {mics.length > 0 ? (
                   <select
@@ -211,33 +227,33 @@ export function Settings({ onClose }: Props) {
                     <input
                       value={data.capture.audio_device}
                       onChange={(e) => setCapture('audio_device', e.target.value)}
-                      placeholder="auto (leave blank)"
+                      placeholder={t('settings.capture.autoPlaceholder')}
                     />
                     <span className="settings-hint-inline">
-                      {devLoading ? 'Detecting…' : 'No devices found'}
+                      {devLoading ? t('settings.capture.detectingDevices') : t('settings.capture.noDevices')}
                     </span>
                   </div>
                 )}
                 <span className="settings-hint">
-                  Linux: ALSA device (e.g. plughw:1,0) &nbsp;|&nbsp; Mac/Windows: device name
+                  {t('settings.capture.audioHint')}
                 </span>
               </div>
             </section>
 
             {/* ── Presence ── */}
             <section className="settings-section">
-              <h3 className="settings-section-title">Presence detection</h3>
+              <h3 className="settings-section-title">{t('settings.presence.title')}</h3>
               <div className="settings-field settings-field--toggle">
-                <label>Enabled</label>
+                <label>{t('settings.presence.enabled')}</label>
                 <button
                   className={`settings-toggle ${data.presence.enabled ? 'on' : ''}`}
                   onClick={() => setPresence('enabled', !data.presence.enabled)}
                 >
-                  {data.presence.enabled ? 'ON' : 'OFF'}
+                  {data.presence.enabled ? t('common.on') : t('common.off')}
                 </button>
               </div>
               <div className="settings-field">
-                <label>Sleep start hour (0–23)</label>
+                <label>{t('settings.presence.sleepStart')}</label>
                 <input
                   type="number" min={0} max={23}
                   value={data.presence.sleep_start_hour}
@@ -245,7 +261,7 @@ export function Settings({ onClose }: Props) {
                 />
               </div>
               <div className="settings-field">
-                <label>Sleep end hour (0–23)</label>
+                <label>{t('settings.presence.sleepEnd')}</label>
                 <input
                   type="number" min={0} max={23}
                   value={data.presence.sleep_end_hour}
@@ -256,27 +272,27 @@ export function Settings({ onClose }: Props) {
 
             {/* ── Chat ── */}
             <section className="settings-section">
-              <h3 className="settings-section-title">Chat integration</h3>
+              <h3 className="settings-section-title">{t('settings.chat.title')}</h3>
               <div className="settings-field settings-field--toggle">
-                <label>Chat enabled</label>
+                <label>{t('settings.chat.enabled')}</label>
                 <button
                   className={`settings-toggle ${data.chat.enabled ? 'on' : ''}`}
                   onClick={() => setChat('enabled', !data.chat.enabled)}
                 >
-                  {data.chat.enabled ? 'ON' : 'OFF'}
+                  {data.chat.enabled ? t('common.on') : t('common.off')}
                 </button>
               </div>
               <div className="settings-field settings-field--toggle">
-                <label>Discord enabled</label>
+                <label>{t('settings.chat.discordEnabled')}</label>
                 <button
                   className={`settings-toggle ${data.chat.discord_enabled ? 'on' : ''}`}
                   onClick={() => setChat('discord_enabled', !data.chat.discord_enabled)}
                 >
-                  {data.chat.discord_enabled ? 'ON' : 'OFF'}
+                  {data.chat.discord_enabled ? t('common.on') : t('common.off')}
                 </button>
               </div>
               <div className="settings-field">
-                <label>Discord poll interval (sec)</label>
+                <label>{t('settings.chat.discordPollInterval')}</label>
                 <input
                   type="number" min={10}
                   value={data.chat.discord_poll_interval}
@@ -284,7 +300,7 @@ export function Settings({ onClose }: Props) {
                 />
               </div>
               <div className="settings-field">
-                <label>Discord backfill months</label>
+                <label>{t('settings.chat.discordBackfillMonths')}</label>
                 <input
                   type="number" min={0}
                   value={data.chat.discord_backfill_months}
@@ -296,7 +312,7 @@ export function Settings({ onClose }: Props) {
             {/* ── API Keys ── */}
             <section className="settings-section">
               <h3 className="settings-section-title">
-                API keys <span className="settings-hint">(stored in .env)</span>
+                {t('settings.apiKeys.title')} <span className="settings-hint">{t('settings.apiKeys.storedIn')}</span>
               </h3>
               {Object.keys(data.env_masked).map((key) => {
                 const masked = data.env_masked[key];
@@ -309,14 +325,14 @@ export function Settings({ onClose }: Props) {
                       <input
                         type={visible ? 'text' : 'password'}
                         value={current}
-                        placeholder={masked || 'not set'}
+                        placeholder={masked || ''}
                         onChange={(e) => setEnvInputs((p) => ({ ...p, [key]: e.target.value }))}
                         autoComplete="off"
                       />
                       <button
                         className="settings-eye"
                         onClick={() => setShowSecrets((p) => ({ ...p, [key]: !p[key] }))}
-                        title={visible ? 'Hide' : 'Show'}
+                        title={visible ? t('common.hide') : t('common.show')}
                       >
                         {visible ? '🙈' : '👁'}
                       </button>
@@ -324,9 +340,7 @@ export function Settings({ onClose }: Props) {
                   </div>
                 );
               })}
-              <p className="settings-hint-block">
-                Leave blank to keep the current value. New values are written to <code>.env</code>.
-              </p>
+              <p className="settings-hint-block" dangerouslySetInnerHTML={{ __html: t('settings.apiKeys.hint') }} />
             </section>
 
           </div>
@@ -334,15 +348,15 @@ export function Settings({ onClose }: Props) {
 
         <div className="settings-footer">
           {error && <span className="settings-error">{error}</span>}
-          {saved && <span className="settings-saved">Saved ✓</span>}
+          {saved && <span className="settings-saved">{t('common.saved')}</span>}
           <div className="settings-footer-actions">
-            <button className="settings-cancel-btn" onClick={onClose}>Cancel</button>
+            <button className="settings-cancel-btn" onClick={onClose}>{t('common.cancel')}</button>
             <button
               className="settings-save-btn"
               onClick={handleSave}
               disabled={saving || !data}
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </div>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LiveFeed } from './LiveFeed';
+import { LOCALE_MAP } from '../i18n';
 
 interface Props {
   date: string;
@@ -20,22 +22,24 @@ function useClock() {
 }
 
 export function Header({ date, onDateChange, availableDates, frameCount, onDashboardClick, onChatClick }: Props) {
+  const { t, i18n } = useTranslation();
   const now = useClock();
+  const locale = LOCALE_MAP[i18n.language] || LOCALE_MAP[i18n.language.split('-')[0]] || 'en-US';
 
   return (
     <header className="header">
       <div className="header-left">
         <h1 className="header-title">homelife.ai</h1>
-        <span className="header-count">{frameCount} frames</span>
+        <span className="header-count">{t('common.frames_count', { count: frameCount })}</span>
         <button className="dashboard-btn" onClick={onChatClick}>
-          Chat
+          {t('header.chat')}
         </button>
         <button className="dashboard-btn" onClick={onDashboardClick}>
-          Dashboard
+          {t('header.dashboard')}
         </button>
       </div>
       <div className="header-center">
-        <span className="header-clock">{now.toLocaleTimeString('ja-JP')}</span>
+        <span className="header-clock">{now.toLocaleTimeString(locale)}</span>
         <input
           type="date"
           value={date}

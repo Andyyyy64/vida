@@ -1,0 +1,149 @@
+{
+  "common": {
+    "frames": "frames",
+    "frames_count": "{{count}} frames",
+    "messages": "messages",
+    "messages_count": "{{count}} messages",
+    "results": "results",
+    "results_count": "{{count}} results",
+    "loading": "Loading…",
+    "close": "Close",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "saved": "Saved ✓",
+    "noData": "No data",
+    "on": "ON",
+    "off": "OFF",
+    "live": "LIVE",
+    "offline": "OFFLINE",
+    "show": "Show",
+    "hide": "Hide",
+    "summary": "summary",
+    "tracked": "tracked",
+    "dm": "DM"
+  },
+  "nav": {
+    "summaries": "Summaries",
+    "timeline": "Timeline",
+    "detail": "Detail"
+  },
+  "header": {
+    "chat": "Chat",
+    "dashboard": "Dashboard"
+  },
+  "warnings": {
+    "noCamera": "Camera not available — running without webcam capture",
+    "daemonNotRunning": "Daemon is not running"
+  },
+  "detail": {
+    "selectFrame": "Select a frame",
+    "main": "Main",
+    "change": "Change {{num}}",
+    "camera": "Camera",
+    "screen": "Screen",
+    "audio": "Audio",
+    "metadata": "Metadata",
+    "app": "App",
+    "window": "Window",
+    "scene": "Scene",
+    "motion": "Motion",
+    "brightness": "Brightness",
+    "enlarge": "Enlarge",
+    "screenLabel": "Screen {{label}}"
+  },
+  "timeline": {
+    "noFrames": "No frames for this day"
+  },
+  "summary": {
+    "title": "Summaries",
+    "collapse": "Collapse",
+    "showMore": "Show more",
+    "noSummaries": "No summaries",
+    "scaleSummary": "{{scale}} summary"
+  },
+  "search": {
+    "placeholder": "Search frames & summaries…",
+    "searchButton": "Search",
+    "searching": "Searching…",
+    "noDescription": "(no description)"
+  },
+  "memo": {
+    "title": "Memo",
+    "noMemo": "No memo",
+    "placeholder": "Today's memo…"
+  },
+  "chat": {
+    "title": "Chat — {{date}}",
+    "noChat": "No chat"
+  },
+  "heatmap": {
+    "label": "Activity",
+    "tooltip": "{{hour}}:00 - {{count}} frames"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "focusScore": "Focus Score",
+    "categoryBreakdown": "Category Breakdown",
+    "activities": "Activities",
+    "appUsage": "App Usage",
+    "thisWeek": "This Week",
+    "sessions": "Sessions",
+    "noSessions": "No sessions"
+  },
+  "settings": {
+    "title": "Settings",
+    "closeButton": "✕ Close",
+    "failedToLoad": "Failed to load settings",
+    "llm": {
+      "title": "LLM",
+      "provider": "Provider",
+      "geminiModel": "Gemini model",
+      "claudeModel": "Claude model"
+    },
+    "capture": {
+      "title": "Capture",
+      "camera": "Camera",
+      "detecting": "detecting…",
+      "interval": "Capture interval (sec)",
+      "microphone": "Microphone",
+      "autoPlaceholder": "auto (leave blank)",
+      "detectingCameras": "Detecting cameras…",
+      "noCameras": "No cameras found",
+      "detectingDevices": "Detecting…",
+      "noDevices": "No devices found",
+      "audioHint": "Linux: ALSA device (e.g. plughw:1,0) | Mac/Windows: device name"
+    },
+    "presence": {
+      "title": "Presence detection",
+      "enabled": "Enabled",
+      "sleepStart": "Sleep start hour (0–23)",
+      "sleepEnd": "Sleep end hour (0–23)"
+    },
+    "chat": {
+      "title": "Chat integration",
+      "enabled": "Chat enabled",
+      "discordEnabled": "Discord enabled",
+      "discordPollInterval": "Discord poll interval (sec)",
+      "discordBackfillMonths": "Discord backfill months"
+    },
+    "apiKeys": {
+      "title": "API keys",
+      "storedIn": "(stored in .env)",
+      "hint": "Leave blank to keep the current value. New values are written to <code>.env</code>."
+    }
+  },
+  "liveFeed": {
+    "pose": "Pose",
+    "togglePose": "Toggle pose skeleton overlay"
+  },
+  "activity": {
+    "focus": "Focus",
+    "communication": "Communication",
+    "entertainment": "Entertainment",
+    "browsing": "Browsing",
+    "break": "Break",
+    "idle": "Idle",
+    "other": "Other"
+  }
+}

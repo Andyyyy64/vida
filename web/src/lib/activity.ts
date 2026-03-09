@@ -13,14 +13,15 @@ export const META_COLORS: Record<string, string> = {
   other: '#a060b0',
 };
 
-export const META_LABELS: Record<string, string> = {
-  focus: 'Focus',
-  communication: 'Communication',
-  entertainment: 'Entertainment',
-  browsing: 'Browsing',
-  break: 'Break',
-  idle: 'Idle',
-  other: 'Other',
+// i18n keys for meta-category labels — use t(`activity.${key}`) for display
+export const META_LABEL_KEYS: Record<string, string> = {
+  focus: 'activity.focus',
+  communication: 'activity.communication',
+  entertainment: 'activity.entertainment',
+  browsing: 'activity.browsing',
+  break: 'activity.break',
+  idle: 'activity.idle',
+  other: 'activity.other',
 };
 
 // Dynamic mappings fetched from API

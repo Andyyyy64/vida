@@ -1,0 +1,149 @@
+{
+  "common": {
+    "frames": "フレーム",
+    "frames_count": "{{count}} フレーム",
+    "messages": "件",
+    "messages_count": "{{count}} 件",
+    "results": "件",
+    "results_count": "{{count}} 件",
+    "loading": "読み込み中…",
+    "close": "閉じる",
+    "save": "保存",
+    "saving": "保存中…",
+    "cancel": "キャンセル",
+    "saved": "保存済み ✓",
+    "noData": "データなし",
+    "on": "ON",
+    "off": "OFF",
+    "live": "LIVE",
+    "offline": "OFFLINE",
+    "show": "表示",
+    "hide": "非表示",
+    "summary": "サマリー",
+    "tracked": "記録済み",
+    "dm": "DM"
+  },
+  "nav": {
+    "summaries": "サマリー",
+    "timeline": "タイムライン",
+    "detail": "詳細"
+  },
+  "header": {
+    "chat": "チャット",
+    "dashboard": "ダッシュボード"
+  },
+  "warnings": {
+    "noCamera": "カメラが利用できません — ウェブカメラなしで実行中",
+    "daemonNotRunning": "デーモンが起動していません"
+  },
+  "detail": {
+    "selectFrame": "フレームを選択してください",
+    "main": "メイン",
+    "change": "変化{{num}}",
+    "camera": "カメラ",
+    "screen": "画面",
+    "audio": "音声",
+    "metadata": "メタデータ",
+    "app": "アプリ",
+    "window": "ウィンドウ",
+    "scene": "シーン",
+    "motion": "動き",
+    "brightness": "明るさ",
+    "enlarge": "拡大",
+    "screenLabel": "画面 {{label}}"
+  },
+  "timeline": {
+    "noFrames": "この日のフレームはありません"
+  },
+  "summary": {
+    "title": "サマリー",
+    "collapse": "折りたたむ",
+    "showMore": "もっと見る",
+    "noSummaries": "サマリーなし",
+    "scaleSummary": "{{scale}} サマリー"
+  },
+  "search": {
+    "placeholder": "フレーム & サマリーを検索…",
+    "searchButton": "検索",
+    "searching": "検索中…",
+    "noDescription": "(説明なし)"
+  },
+  "memo": {
+    "title": "メモ",
+    "noMemo": "メモなし",
+    "placeholder": "今日のメモ…"
+  },
+  "chat": {
+    "title": "チャット — {{date}}",
+    "noChat": "チャットなし"
+  },
+  "heatmap": {
+    "label": "活動",
+    "tooltip": "{{hour}}:00 - {{count}} フレーム"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "focusScore": "フォーカススコア",
+    "categoryBreakdown": "カテゴリ内訳",
+    "activities": "アクティビティ",
+    "appUsage": "アプリ使用状況",
+    "thisWeek": "今週",
+    "sessions": "セッション",
+    "noSessions": "セッションなし"
+  },
+  "settings": {
+    "title": "設定",
+    "closeButton": "✕ 閉じる",
+    "failedToLoad": "設定の読み込みに失敗しました",
+    "llm": {
+      "title": "LLM",
+      "provider": "プロバイダー",
+      "geminiModel": "Gemini モデル",
+      "claudeModel": "Claude モデル"
+    },
+    "capture": {
+      "title": "キャプチャ",
+      "camera": "カメラ",
+      "detecting": "検出中…",
+      "interval": "キャプチャ間隔（秒）",
+      "microphone": "マイク",
+      "autoPlaceholder": "自動（空欄のまま）",
+      "detectingCameras": "カメラを検出中…",
+      "noCameras": "カメラが見つかりません",
+      "detectingDevices": "検出中…",
+      "noDevices": "デバイスが見つかりません",
+      "audioHint": "Linux: ALSAデバイス（例: plughw:1,0）| Mac/Windows: デバイス名"
+    },
+    "presence": {
+      "title": "在席検出",
+      "enabled": "有効",
+      "sleepStart": "睡眠開始時間（0〜23）",
+      "sleepEnd": "睡眠終了時間（0〜23）"
+    },
+    "chat": {
+      "title": "チャット連携",
+      "enabled": "チャット有効",
+      "discordEnabled": "Discord 有効",
+      "discordPollInterval": "Discord ポーリング間隔（秒）",
+      "discordBackfillMonths": "Discord バックフィル月数"
+    },
+    "apiKeys": {
+      "title": "API キー",
+      "storedIn": "（.env に保存）",
+      "hint": "空欄のままにすると現在の値が維持されます。新しい値は <code>.env</code> に書き込まれます。"
+    }
+  },
+  "liveFeed": {
+    "pose": "ポーズ",
+    "togglePose": "ポーズスケルトンオーバーレイの切り替え"
+  },
+  "activity": {
+    "focus": "集中",
+    "communication": "コミュニケーション",
+    "entertainment": "エンタメ",
+    "browsing": "ブラウジング",
+    "break": "休憩",
+    "idle": "離席",
+    "other": "その他"
+  }
+}
