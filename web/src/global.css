@@ -33,7 +33,7 @@
   --dot-ring: rgba(8, 10, 14, 0.95);
   --dot-subtle: rgba(255, 255, 255, 0.08);
   --toast-shadow: rgba(0, 0, 0, 0.4);
-  --warning-text: #8fd4ca;
+  --warning-text: #c89630;
   --calendar-icon-invert: invert(0.7);
 }
 
@@ -56,7 +56,7 @@
   --dot-ring: rgba(255, 255, 255, 0.95);
   --dot-subtle: rgba(0, 0, 0, 0.1);
   --toast-shadow: rgba(0, 0, 0, 0.12);
-  --warning-text: #2f7d72;
+  --warning-text: #96700a;
   --calendar-icon-invert: none;
 }
 
@@ -117,9 +117,9 @@ pre {
   display: flex;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-md);
-  background: rgba(var(--accent-rgb), 0.12);
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.45);
-  color: var(--warning-text);
+  background: rgba(200, 150, 30, 0.12);
+  border-bottom: 1px solid rgba(200, 150, 30, 0.4);
+  color: #c89630;
   font-size: 0.8rem;
   font-family: var(--font-mono);
 }
