@@ -23,8 +23,9 @@ app.put('/', async (c) => {
     return c.json({ error: 'date and content required' }, 400);
   }
 
-  // Only allow editing today's memo
-  const today = new Date().toISOString().slice(0, 10);
+  // Only allow editing today's memo (use local date, not UTC)
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   if (body.date !== today) {
     return c.json({ error: 'can only edit today\'s memo' }, 403);
   }
