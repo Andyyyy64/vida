@@ -18,6 +18,16 @@ async function putJson<T>(url: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${url}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
 export const api = {
   frames: {
     list: (date: string) => fetchJson<Frame[]>(`/frames?date=${date}`),
@@ -51,11 +61,18 @@ export const api = {
     put: (date: string, content: string) => putJson<{ ok: boolean }>('/memos', { date, content }),
   },
   chat: (date: string) => fetchJson<ChatData>(`/chat?date=${date}`),
-  status: () => fetchJson<{ running: boolean; camera: boolean }>('/status'),
+  status: () => fetchJson<{ running: boolean; camera: boolean; mic: boolean }>('/status'),
   search: (q: string, from?: string, to?: string) => {
     const params = new URLSearchParams({ q });
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     return fetchJson<SearchResults>(`/search?${params}`);
+  },
+  rag: {
+    ask: (query: string, history?: { role: string; content: string }[]) =>
+      postJson<{ response: string; sources: { type: string; timestamp: string; preview: string; distance: number }[] }>(
+        '/rag/ask',
+        { query, history },
+      ),
   },
 };

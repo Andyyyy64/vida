@@ -36,7 +36,9 @@
     "theme_dark": "Dark"
   },
   "warnings": {
-    "noCamera": "Camera not available — running without webcam capture",
+    "noCameraAndMic": "Running without camera and microphone",
+    "noCamera": "Running without camera",
+    "noMic": "Running without microphone",
     "daemonNotRunning": "Daemon is not running"
   },
   "detail": {
@@ -165,6 +167,20 @@
     "fetchEvents": "Failed to load events",
     "fetchStats": "Failed to load stats",
     "network": "Network error"
+  },
+  "ragChat": {
+    "title": "AI Chat",
+    "placeholder": "Ask questions about your recorded data",
+    "inputPlaceholder": "Ask a question…",
+    "send": "Send",
+    "error": "An error occurred. Please try again.",
+    "sources": "Sources:",
+    "sourceFrame": "Frame",
+    "sourceChat": "Chat",
+    "sourceSummary": "Summary",
+    "suggestion1": "What did I do today?",
+    "suggestion2": "What do I do most often?",
+    "suggestion3": "Summarize yesterday's activity"
   },
   "activity": {
     "focus": "Focus",

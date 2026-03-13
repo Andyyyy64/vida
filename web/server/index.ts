@@ -20,6 +20,7 @@ import chatRoutes from './routes/chat.js';
 import settingsRoutes from './routes/settings.js';
 import devicesRoutes from './routes/devices.js';
 import exportRoutes from './routes/export.js';
+import ragRoutes from './routes/rag.js';
 
 const app = new Hono();
 
@@ -91,18 +92,19 @@ app.route('/api/chat', chatRoutes);
 app.route('/api/settings', settingsRoutes);
 app.route('/api/devices', devicesRoutes);
 app.route('/api/export', exportRoutes);
+app.route('/api/rag', ragRoutes);
 
 // Daemon status (read from data/status.json)
 app.get('/api/status', (c) => {
   const statusPath = join(DATA_DIR, 'status.json');
   if (!existsSync(statusPath)) {
-    return c.json({ running: false, camera: false });
+    return c.json({ running: false, camera: false, mic: false });
   }
   try {
     const data = JSON.parse(readFileSync(statusPath, 'utf-8'));
     return c.json(data);
   } catch {
-    return c.json({ running: false, camera: false });
+    return c.json({ running: false, camera: false, mic: false });
   }
 });
 

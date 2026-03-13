@@ -28,10 +28,12 @@ from daemon.capture.screen import ScreenCapture
 from daemon.capture.window import WindowMonitor
 from daemon.chat.manager import ChatManager
 from daemon.config import Config
+from daemon.embedding import Embedder
 from daemon.knowledge import KnowledgeGenerator
 from daemon.live import LiveServer
 from daemon.llm import create_provider
 from daemon.notify import send_notification
+from daemon.rag_server import RagServer
 from daemon.report import ReportGenerator
 from daemon.retention import cleanup_old_data
 from daemon.storage.database import Database
@@ -51,7 +53,7 @@ class Daemon:
         self._screen = ScreenCapture(config.data_dir)
         self._window = WindowMonitor(config.db_path)
         self._audio = AudioCapture(config.data_dir, config.capture.audio_device, config.capture.audio_sample_rate)
-        self._db = Database(config.db_path)
+        self._db = Database(config.db_path, embedding_dimensions=config.embedding.dimensions)
         self._motion = MotionDetector(config.analysis.motion_threshold)
         self._scene = SceneAnalyzer(config.analysis.brightness_dark, config.analysis.brightness_bright)
         self._pose = PoseDetector()
@@ -86,6 +88,12 @@ class Daemon:
         )
         log.info("LLM provider: %s", config.llm.provider)
 
+        # Multimodal embedder
+        self._embedding_enabled = config.embedding.enabled
+        self._embedder = Embedder(model=config.embedding.model, dimensions=config.embedding.dimensions)
+        if self._embedding_enabled:
+            log.info("Embedding enabled (model=%s, dims=%d)", config.embedding.model, config.embedding.dimensions)
+
         self._activity_mgr = ActivityManager(self._db)
         self._transcriber = Transcriber(
             provider,
@@ -97,6 +105,7 @@ class Daemon:
         self._knowledge_gen = KnowledgeGenerator(provider, self._db, config.data_dir)
         self._knowledge_interval_days = config.knowledge_interval_days
         self._chat_mgr = ChatManager(config.db_path, config.chat)
+        self._rag_server = RagServer(config, port=3003)
 
         # Track last summary time per scale
         # Initialize to now so we wait the full interval before first generation
@@ -114,8 +123,13 @@ class Daemon:
         if not self._has_camera:
             log.warning("Camera not available — running without camera")
 
+        self._has_mic = self._audio.is_available()
+        if not self._has_mic:
+            log.warning("Microphone not available — running without audio capture")
+
         self._running = True
         self._live.start()
+        self._rag_server.start()
         self._window.start()
         self._chat_mgr.start()
         if self._has_camera:
@@ -152,6 +166,7 @@ class Daemon:
             self._running = False
             self._chat_mgr.stop()
             self._window.stop()
+            self._rag_server.stop()
             self._live.stop()
             self._camera.close()
             self._db.close()
@@ -426,8 +441,20 @@ class Daemon:
             self._db.update_frame_analysis(frame_id, description, activity)
             log.info("Analysis: [%s] %s", activity, description[:80])
 
+        # Multimodal embedding (after LLM analysis so description/activity are available)
+        if self._embedding_enabled:
+            # Update frame with analysis results for embedding
+            frame.claude_description = description
+            frame.activity = activity
+            self._embed_frame(frame)
+
         # Multi-scale summaries
         self._check_summaries(now)
+
+        # Embed pending chat messages and summaries (background threads)
+        if self._embedding_enabled:
+            self._embed_pending_chat(now)
+            self._embed_pending_summaries(now)
 
         # Knowledge profile generation
         self._check_knowledge(now)
@@ -446,6 +473,86 @@ class Daemon:
 
         # Daily retention cleanup
         self._check_retention(now)
+
+    def _embed_frame(self, frame: Frame):
+        """Generate and store multimodal embedding for a frame in background thread."""
+
+        def _do_embed():
+            try:
+                embedding = self._embedder.embed_frame(frame, self._config.data_dir)
+                if embedding and frame.id:
+                    preview = frame.claude_description[:200] if frame.claude_description else frame.activity
+                    self._db.insert_embedding(
+                        "frame",
+                        frame.id,
+                        frame.timestamp.isoformat(),
+                        preview,
+                        embedding,
+                    )
+            except Exception:
+                log.exception("Embedding failed for frame %s", frame.id)
+
+        threading.Thread(target=_do_embed, daemon=True, name="embed-frame").start()
+
+    def _embed_pending_chat(self, now: datetime):
+        """Embed any recent chat messages that don't have embeddings yet."""
+        since = now - timedelta(hours=1)
+        msg_ids = self._db.get_unembedded_chat_ids(since, limit=10)
+        if not msg_ids:
+            return
+
+        def _do_embed():
+            for mid in msg_ids:
+                try:
+                    row = self._db._conn.execute("SELECT * FROM chat_messages WHERE id = ?", (mid,)).fetchone()
+                    if not row:
+                        continue
+                    msg = self._db._row_to_chat_message(row)
+                    embedding = self._embedder.embed_chat_message(msg)
+                    if embedding:
+                        preview = f"{msg.author_name}: {msg.content[:200]}"
+                        self._db.insert_embedding(
+                            "chat",
+                            mid,
+                            msg.timestamp.isoformat(),
+                            preview,
+                            embedding,
+                        )
+                        log.info("Embedded chat %d: %s", mid, preview[:60])
+                except Exception:
+                    log.exception("Chat embedding failed for message %d", mid)
+
+        threading.Thread(target=_do_embed, daemon=True, name="embed-chat").start()
+
+    def _embed_pending_summaries(self, now: datetime):
+        """Embed any recent summaries that don't have embeddings yet."""
+        since = now - timedelta(hours=24)
+        sum_ids = self._db.get_unembedded_summary_ids(since, limit=5)
+        if not sum_ids:
+            return
+
+        def _do_embed():
+            for sid in sum_ids:
+                try:
+                    row = self._db._conn.execute("SELECT * FROM summaries WHERE id = ?", (sid,)).fetchone()
+                    if not row:
+                        continue
+                    summary = self._db._row_to_summary(row)
+                    embedding = self._embedder.embed_summary(summary)
+                    if embedding:
+                        preview = f"[{summary.scale}] {summary.content[:200]}"
+                        self._db.insert_embedding(
+                            "summary",
+                            sid,
+                            summary.timestamp.isoformat(),
+                            preview,
+                            embedding,
+                        )
+                        log.info("Embedded summary %d [%s]", sid, summary.scale)
+                except Exception:
+                    log.exception("Summary embedding failed for %d", sid)
+
+        threading.Thread(target=_do_embed, daemon=True, name="embed-summary").start()
 
     def _check_retention(self, now: datetime):
         """Run retention cleanup once per day."""
@@ -509,6 +616,7 @@ class Daemon:
         status = {
             "running": True,
             "camera": self._has_camera,
+            "mic": self._has_mic,
             "started_at": datetime.now().isoformat(),
         }
         status_path = self._config.data_dir / "status.json"

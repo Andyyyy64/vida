@@ -36,7 +36,9 @@
     "theme_dark": "ダーク"
   },
   "warnings": {
-    "noCamera": "カメラが利用できません — ウェブカメラなしで実行中",
+    "noCameraAndMic": "カメラとマイクなしで実行中",
+    "noCamera": "カメラなしで実行中",
+    "noMic": "マイクなしで実行中",
     "daemonNotRunning": "デーモンが起動していません"
   },
   "detail": {
@@ -165,6 +167,20 @@
     "fetchEvents": "イベントの読み込みに失敗しました",
     "fetchStats": "統計の読み込みに失敗しました",
     "network": "ネットワークエラー"
+  },
+  "ragChat": {
+    "title": "AI チャット",
+    "placeholder": "記録データについて質問してみましょう",
+    "inputPlaceholder": "質問を入力…",
+    "send": "送信",
+    "error": "エラーが発生しました。もう一度お試しください。",
+    "sources": "参照データ:",
+    "sourceFrame": "フレーム",
+    "sourceChat": "チャット",
+    "sourceSummary": "サマリー",
+    "suggestion1": "今日なにしてた？",
+    "suggestion2": "最近よくやってることは？",
+    "suggestion3": "昨日の活動をまとめて"
   },
   "activity": {
     "focus": "集中",
