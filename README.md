@@ -9,10 +9,6 @@
 
 A personal AI that quietly watches your day-to-day life, remembers everything, and helps you understand how you spend your time.
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700" />
-</p>
-
 ## Quick Start
 
 > **Prerequisites:** Python 3.12+, Node.js 22+, [uv](https://docs.astral.sh/uv/), and a [Gemini API key](https://aistudio.google.com/).

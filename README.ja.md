@@ -9,10 +9,6 @@
 
 あなたの日常をそっと見守り、すべてを記憶し、時間の使い方を可視化するパーソナルAI。
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700" />
-</p>
-
 ## クイックスタート
 
 > **前提条件:** Python 3.12+、Node.js 22+、[uv](https://docs.astral.sh/uv/)、[Gemini APIキー](https://aistudio.google.com/)
