@@ -1,13 +1,13 @@
-# homelife.ai
+# david
 
-[![CI](https://github.com/Andyyyy64/homelife.ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Andyyyy64/homelife.ai/actions/workflows/ci.yml)
+[![CI](https://github.com/Andyyyy64/david/actions/workflows/ci.yml/badge.svg)](https://github.com/Andyyyy64/david/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/Andyyyy64/homelife.ai/releases)
+[![Version](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/Andyyyy64/david/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
 
 [English](README.md) | **日本語**
 
-日常生活を自動記録し、監視・管理・分析を可能にするパーソナルAIシステム。
+あなたの日常をそっと見守り、すべてを記憶し、時間の使い方を可視化するパーソナルAI。
 
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="700" />
@@ -23,8 +23,8 @@
 
 ```powershell
 # 1. クローン & インストール
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
+git clone https://github.com/Andyyyy64/david.git
+cd david
 uv sync
 cd web; npm install; cd ..
 
@@ -44,8 +44,8 @@ cd web; npm run electron:start
 
 ```bash
 # 1. クローン & インストール
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
+git clone https://github.com/Andyyyy64/david.git
+cd david
 uv sync
 cd web && npm install && cd ..
 
@@ -64,8 +64,8 @@ cd web && npm run electron:start
 <summary><b>Linux / WSL2</b></summary>
 
 ```bash
-git clone https://github.com/Andyyyy64/homelife.ai.git
-cd homelife.ai
+git clone https://github.com/Andyyyy64/david.git
+cd david
 uv sync
 cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
