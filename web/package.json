@@ -14,10 +14,16 @@
     "electron:dev": "npm run electron:compile && concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --dev\"",
     "electron:start": "npm run electron:compile && electron .",
     "electron:build": "vite build && npm run electron:compile && electron-builder",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "test": "vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^1",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-shell": "^2.3.5",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "better-sqlite3": "^11",
     "electron-updater": "^6.8.3",
     "hono": "^4",
@@ -30,6 +36,7 @@
     "smol-toml": "^1.6.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7",
