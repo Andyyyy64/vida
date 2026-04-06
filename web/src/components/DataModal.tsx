@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { api } from '../lib/api';
 
 interface DataStats {
   counts: Record<string, number>;
@@ -60,8 +61,7 @@ export function DataModal({ onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch('/api/data/stats')
-      .then((r) => r.json())
+    (api.data.stats() as Promise<DataStats>)
       .then(setStats)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -79,11 +79,32 @@ export function DataModal({ onClose }: Props) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [handleEsc]);
 
-  function handleExport(table: string, format: 'csv' | 'json' = 'csv') {
-    const a = document.createElement('a');
-    a.href = `/api/data/export/${table}?format=${format}`;
-    a.download = `${table}-all.${format}`;
-    a.click();
+  async function handleExport(table: string, format: 'csv' | 'json' = 'csv') {
+    try {
+      const content = await api.data.exportTable(table, format);
+      // If result is a string, create a download from it
+      if (typeof content === 'string') {
+        const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${table}-all.${format}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        // Fallback: direct download link (browser mode may return non-string)
+        const a = document.createElement('a');
+        a.href = `/api/data/export/${table}?format=${format}`;
+        a.download = `${table}-all.${format}`;
+        a.click();
+      }
+    } catch {
+      // Fallback to direct link for browser mode
+      const a = document.createElement('a');
+      a.href = `/api/data/export/${table}?format=${format}`;
+      a.download = `${table}-all.${format}`;
+      a.click();
+    }
   }
 
   function handleExportAll(format: 'csv' | 'json') {
@@ -93,6 +114,8 @@ export function DataModal({ onClose }: Props) {
   }
 
   async function importOneFile(table: string, file: File): Promise<ImportResult> {
+    // Import is only supported via the Hono API (file uploads).
+    // In Tauri mode this will fail gracefully.
     const formData = new FormData();
     formData.append('file', file);
     const res = await fetch(`/api/data/import/${table}`, {
@@ -135,8 +158,7 @@ export function DataModal({ onClose }: Props) {
 
       setImportResult({ imported: totalImported, skipped: totalSkipped, total: totalImported + totalSkipped });
       // Refresh stats
-      fetch('/api/data/stats')
-        .then((r) => r.json())
+      (api.data.stats() as Promise<DataStats>)
         .then(setStats)
         .catch(() => {});
     } catch (e) {

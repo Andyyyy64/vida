@@ -154,6 +154,7 @@ pub fn run() {
             commands::context::get_context,
             commands::context::put_context,
             // status
+            commands::status::get_data_dir,
             commands::status::get_status,
             // devices
             commands::devices::get_devices,

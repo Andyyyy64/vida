@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Frame } from '../lib/types';
 import { activityColor } from '../lib/activity';
+import { mediaUrl } from '../lib/media';
 import { AudioPlayer } from './AudioPlayer';
 import { LOCALE_MAP } from '../i18n';
 
@@ -67,8 +68,8 @@ export function DetailPanel({ frame }: Props) {
 
       {frame.path && (
         <DetailSection title={t('detail.camera')}>
-          <div className="detail-image-wrap" onClick={() => setModalSrc(`/media/${frame.path}`)}>
-            <img src={`/media/${frame.path}`} alt={t('detail.camera')} className="detail-img" loading="lazy" />
+          <div className="detail-image-wrap" onClick={() => setModalSrc(mediaUrl(frame.path))}>
+            <img src={mediaUrl(frame.path)} alt={t('detail.camera')} className="detail-img" loading="lazy" />
           </div>
         </DetailSection>
       )}
@@ -148,9 +149,9 @@ function ScreenStrip({ screens, onClickImage }: {
 
   return (
     <div className="screen-strip">
-      <div className="screen-strip-main" onClick={() => onClickImage(`/media/${screens[selected].path}`)}>
+      <div className="screen-strip-main" onClick={() => onClickImage(mediaUrl(screens[selected].path))}>
         <img
-          src={`/media/${screens[selected].path}`}
+          src={mediaUrl(screens[selected].path)}
           alt={t('detail.screenLabel', { label: screens[selected].label })}
           className="detail-img"
           loading="lazy"
@@ -164,7 +165,7 @@ function ScreenStrip({ screens, onClickImage }: {
               className={`screen-thumb ${i === selected ? 'active' : ''}`}
               onClick={() => setSelected(i)}
             >
-              <img src={`/media/${s.path}`} alt={s.label} loading="lazy" />
+              <img src={mediaUrl(s.path)} alt={s.label} loading="lazy" />
               <span className="screen-thumb-label">{s.label}</span>
             </button>
           ))}

@@ -39,8 +39,8 @@ export function Settings({ onClose }: Props) {
   // Load settings, devices, and context in parallel
   useEffect(() => {
     Promise.all([
-      fetch('/api/settings').then((r) => r.json()),
-      fetch('/api/devices').then((r) => r.json()),
+      api.settings.get() as Promise<SettingsData>,
+      api.devices.get() as Promise<DeviceList>,
       api.context.get().catch(() => ({ content: '' })),
     ])
       .then(([s, d, ctx]: [SettingsData, DeviceList, { content: string }]) => {
@@ -84,19 +84,11 @@ export function Settings({ onClose }: Props) {
     try {
       const env: Record<string, string> = {};
       for (const [k, v] of Object.entries(envInputs)) env[k] = v;
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, env }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`);
-      }
+      await api.settings.put({ ...data, env });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       setEnvInputs((prev) => Object.fromEntries(Object.keys(prev).map((k) => [k, ''])));
-      const updated = await fetch('/api/settings').then((r) => r.json()).catch(() => null);
+      const updated = await api.settings.get().catch(() => null) as SettingsData | null;
       if (updated) setData(updated);
     } catch (e) {
       setError(String(e));

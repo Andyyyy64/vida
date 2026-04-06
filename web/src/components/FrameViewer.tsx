@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { mediaUrl } from '../lib/media';
 
 interface Props {
   framePath: string;
@@ -55,7 +56,7 @@ export function FrameViewer({ framePath, screenPath, screenExtraPaths }: Props) 
       <div className="frame-image-container">
         <img
           key={current.path}
-          src={`/media/${current.path}`}
+          src={mediaUrl(current.path)}
           alt={current.label}
           className="frame-image"
         />

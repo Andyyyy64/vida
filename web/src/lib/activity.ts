@@ -1,7 +1,9 @@
 /**
  * Shared activity module — single source of truth for meta-category colors,
- * labels, and dynamic activity→meta_category mapping from the API.
+ * labels, and dynamic activity->meta_category mapping from the API.
  */
+
+import { api } from './api';
 
 export const META_COLORS: Record<string, string> = {
   focus: '#60a860',
@@ -29,10 +31,7 @@ let _mappings: Record<string, string> | null = null;
 
 export async function loadActivityMappings(): Promise<void> {
   try {
-    const res = await fetch('/api/activities/mappings');
-    if (res.ok) {
-      _mappings = await res.json();
-    }
+    _mappings = await api.activities.mappings();
   } catch {
     // Silently fail — will use 'other' as fallback
   }

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { mediaUrl } from '../lib/media';
 
 interface Props {
   audioPath: string;
@@ -12,7 +13,7 @@ export function AudioPlayer({ audioPath, transcription }: Props) {
   const [currentTime, setCurrentTime] = useState(0);
   const [seeking, setSeeking] = useState(false);
 
-  const src = `/media/${audioPath}`;
+  const src = mediaUrl(audioPath);
 
   // Reset state when audio source changes
   useEffect(() => {

@@ -2,6 +2,11 @@ use crate::db::AppDb;
 use tauri::State;
 
 #[tauri::command]
+pub fn get_data_dir(db: State<AppDb>) -> String {
+    db.data_dir.to_string_lossy().to_string()
+}
+
+#[tauri::command]
 pub fn get_status(db: State<AppDb>) -> Result<serde_json::Value, String> {
     let status_path = db.data_dir.join("status.json");
     match std::fs::read_to_string(&status_path) {
