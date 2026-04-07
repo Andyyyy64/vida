@@ -9,12 +9,25 @@ permissions:
   contents: write
 
 jobs:
-  # ── macOS ──────────────────────────────────────────────────────────────────
-  build-mac:
-    runs-on: macos-latest
+  build-tauri:
     strategy:
+      fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+            artifact: mac-arm64
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+            artifact: mac-x64
+          - platform: windows-latest
+            args: ''
+            artifact: windows-x64
+          - platform: ubuntu-22.04
+            args: ''
+            artifact: linux-x64
+
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
@@ -22,84 +35,68 @@ jobs:
         with:
           node-version: '22'
 
-      - uses: astral-sh/setup-uv@v5
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: web/src-tauri -> target
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            patchelf libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
       - name: Install Node dependencies
         working-directory: web
         run: npm ci
 
-      - name: Build frontend + Electron main
-        working-directory: web
-        run: npm run build && npm run electron:compile
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: web
+          tauriScript: npx tauri
+          args: ${{ matrix.args }}
 
-      - name: Prepare extraResources — daemon source
+      - name: Collect artifacts (macOS)
+        if: matrix.platform == 'macos-latest'
         run: |
-          mkdir -p web/extraResources/daemon-src
-          cp -r daemon web/extraResources/daemon-src/daemon
-          cp pyproject.toml uv.lock web/extraResources/daemon-src/
-          # Bundle the YOLO model too
-          [ -f yolov8n.pt ] && cp yolov8n.pt web/extraResources/daemon-src/ || true
+          mkdir -p artifacts
+          cp web/src-tauri/target/*/release/bundle/dmg/*.dmg artifacts/ 2>/dev/null || true
+          ls -lh artifacts/
 
-      - name: Prepare extraResources — uv binary (mac)
+      - name: Collect artifacts (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
         run: |
-          cp "$(which uv)" web/extraResources/uv
-          chmod +x web/extraResources/uv
+          New-Item -ItemType Directory -Force -Path artifacts
+          Copy-Item "web\src-tauri\target\release\bundle\nsis\*.exe" artifacts\ -ErrorAction SilentlyContinue
+          Copy-Item "web\src-tauri\target\release\bundle\msi\*.msi" artifacts\ -ErrorAction SilentlyContinue
+          Get-ChildItem artifacts\
 
-      - name: Build Mac DMG (${{ matrix.arch }})
-        working-directory: web
-        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+      - name: Collect artifacts (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          mkdir -p artifacts
+          cp web/src-tauri/target/release/bundle/deb/*.deb artifacts/ 2>/dev/null || true
+          cp web/src-tauri/target/release/bundle/appimage/*.AppImage artifacts/ 2>/dev/null || true
+          ls -lh artifacts/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mac-${{ matrix.arch }}
-          path: release/*.dmg
+          name: ${{ matrix.artifact }}
+          path: artifacts/*
 
-  # ── Windows ────────────────────────────────────────────────────────────────
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - uses: astral-sh/setup-uv@v5
-
-      - name: Install Node dependencies
-        working-directory: web
-        run: npm ci
-
-      - name: Build frontend + Electron main
-        working-directory: web
-        run: npm run build && npm run electron:compile
-
-      - name: Prepare extraResources — daemon source
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path web\extraResources\daemon-src
-          Copy-Item -Recurse daemon web\extraResources\daemon-src\daemon
-          Copy-Item pyproject.toml, uv.lock web\extraResources\daemon-src\
-          if (Test-Path yolov8n.pt) { Copy-Item yolov8n.pt web\extraResources\daemon-src\ }
-
-      - name: Prepare extraResources — uv binary (windows)
-        shell: pwsh
-        run: |
-          $uvPath = (Get-Command uv).Source
-          Copy-Item $uvPath "web\extraResources\uv.exe"
-
-      - name: Build Windows installer
-        working-directory: web
-        run: npx electron-builder --win --publish never
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-x64
-          path: release/*.exe
-
-  # ── GitHub Release ─────────────────────────────────────────────────────────
   release:
-    needs: [build-mac, build-windows]
+    needs: [build-tauri]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -107,31 +104,36 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: List artifacts
+        run: ls -lh artifacts/
+
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
-          prerelease: true
+          prerelease: false
           generate_release_notes: true
           body: |
-            ## homelife.ai ${{ github.ref_name }}
+            ## homelife.ai ${{ github.ref_name }} (Tauri)
 
             Personal AI life monitor — camera, screen, audio capture with LLM analysis.
+            Migrated from Electron to Tauri v2 for smaller binaries and native performance.
 
             ### Downloads
             | Platform | File |
             |---|---|
-            | macOS Apple Silicon (M1/M2/M3) | `*-arm64.dmg` |
-            | macOS Intel | `*.dmg` (without arm64 in name) |
-            | Windows 10/11 x64 | `*.exe` |
+            | macOS Apple Silicon (M1+) | `*_aarch64.dmg` |
+            | macOS Intel | `*_x64.dmg` |
+            | Windows 10/11 x64 | `*.exe` (NSIS) or `*.msi` |
+            | Linux x64 | `*.deb` or `*.AppImage` |
 
             ### Setup
             1. **Download and install** the app for your platform
-            2. **First launch**: the app automatically sets up the Python environment (~1 min)
-            3. **Add your API key** via Settings (⚙ gear icon, bottom-left)
+            2. **Python required**: ensure Python 3.12+ is installed, then run `uv sync` in the app directory
+            3. **Add your API key** via Settings (gear icon)
                - Get a free Gemini key at https://aistudio.google.com/
 
             ### macOS note
-            App is unsigned — right-click the DMG → Open to bypass Gatekeeper.
+            App is unsigned — right-click → Open to bypass Gatekeeper.
 
             ### Windows note
             SmartScreen may warn — click "More info" → "Run anyway".
