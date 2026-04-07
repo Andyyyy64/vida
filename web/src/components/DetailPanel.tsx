@@ -146,13 +146,15 @@ function ScreenStrip({ screens, onClickImage }: {
 }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState(0);
+  const idx = Math.min(selected, screens.length - 1);
+  if (!screens.length) return null;
 
   return (
     <div className="screen-strip">
-      <div className="screen-strip-main" onClick={() => onClickImage(mediaUrl(screens[selected].path))}>
+      <div className="screen-strip-main" onClick={() => onClickImage(mediaUrl(screens[idx].path))}>
         <img
-          src={mediaUrl(screens[selected].path)}
-          alt={t('detail.screenLabel', { label: screens[selected].label })}
+          src={mediaUrl(screens[idx].path)}
+          alt={t('detail.screenLabel', { label: screens[idx].label })}
           className="detail-img"
           loading="lazy"
         />
