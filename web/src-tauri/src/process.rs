@@ -41,13 +41,17 @@ impl DaemonProcess {
             }
         }
 
-        let child = Command::new(python_bin)
-            .arg("-m")
+        let mut cmd = Command::new(python_bin);
+        cmd.arg("-m")
             .arg("daemon")
             .arg("start")
             .current_dir(config_dir)
             .env("PYTHONPATH", daemon_src)
-            .env("DATA_DIR", data_dir)
+            .env("DATA_DIR", data_dir);
+
+        crate::hide_window(&mut cmd);
+
+        let child = cmd
             .spawn()
             .map_err(|e| format!("Failed to start daemon: {e}"))?;
 

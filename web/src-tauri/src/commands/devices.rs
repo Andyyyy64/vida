@@ -20,10 +20,14 @@ pub async fn get_devices(db: State<'_, AppDb>) -> Result<serde_json::Value, Stri
     let daemon_src = &db.daemon_src;
     let script = daemon_src.join("daemon").join("devices.py");
 
-    let output = Command::new(&python)
-        .arg(&script)
+    let mut cmd = Command::new(&python);
+    cmd.arg(&script)
         .current_dir(daemon_src)
-        .env("PYTHONPATH", daemon_src)
+        .env("PYTHONPATH", daemon_src);
+
+    crate::hide_window(&mut cmd);
+
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to run device enumeration: {e}"))?;
 

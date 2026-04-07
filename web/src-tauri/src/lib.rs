@@ -11,6 +11,17 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, RunEvent, WindowEvent};
 
+/// Apply CREATE_NO_WINDOW flag on Windows to hide console windows.
+#[cfg(windows)]
+fn hide_window(cmd: &mut std::process::Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn hide_window(_cmd: &mut std::process::Command) {}
+
 /// Resolve data_dir, config_dir, python_bin, and daemon_src based on
 /// whether we are running in dev mode or as a packaged application.
 fn resolve_paths(app: &tauri::App) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
@@ -70,29 +81,29 @@ fn resolve_paths(app: &tauri::App) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
                     let _ = std::fs::copy(&uvlock, app_data.join("uv.lock"));
                 }
                 // Try uv sync first, fall back to pip
-                let uv_result = std::process::Command::new("uv")
-                    .arg("sync")
-                    .current_dir(&app_data)
-                    .status();
+                let mut uv_cmd = std::process::Command::new("uv");
+                uv_cmd.arg("sync").current_dir(&app_data);
+                hide_window(&mut uv_cmd);
+                let uv_result = uv_cmd.status();
                 match uv_result {
                     Ok(s) if s.success() => {
                         eprintln!("Python environment ready (uv sync)");
                     }
                     _ => {
                         eprintln!("uv not found or failed; trying pip...");
-                        let _ = std::process::Command::new("python")
-                            .args(["-m", "venv", ".venv"])
-                            .current_dir(&app_data)
-                            .status();
+                        let mut venv_cmd = std::process::Command::new("python");
+                        venv_cmd.args(["-m", "venv", ".venv"]).current_dir(&app_data);
+                        hide_window(&mut venv_cmd);
+                        let _ = venv_cmd.status();
                         let pip_bin = if cfg!(windows) {
                             app_data.join(".venv").join("Scripts").join("pip.exe")
                         } else {
                             app_data.join(".venv").join("bin").join("pip")
                         };
-                        let _ = std::process::Command::new(&pip_bin)
-                            .args(["install", "-r", "pyproject.toml"])
-                            .current_dir(&app_data)
-                            .status();
+                        let mut pip_cmd = std::process::Command::new(&pip_bin);
+                        pip_cmd.args(["install", "-r", "pyproject.toml"]).current_dir(&app_data);
+                        hide_window(&mut pip_cmd);
+                        let _ = pip_cmd.status();
                     }
                 }
             }
@@ -145,6 +156,7 @@ pub fn run() {
                 .build()?;
 
             let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().cloned().unwrap())
                 .menu(&menu)
                 .tooltip("homelife.ai")
                 .on_menu_event(move |app, event| match event.id().as_ref() {
