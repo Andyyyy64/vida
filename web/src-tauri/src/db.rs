@@ -30,15 +30,94 @@ impl AppDb {
         conn.execute_batch("PRAGMA journal_mode=WAL;")
             .map_err(|e| format!("Failed to set WAL mode: {e}"))?;
 
-        // Ensure memos table exists (daemon may not have created it yet)
+        // Ensure all tables exist (daemon may not have run yet)
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS memos (
+            "CREATE TABLE IF NOT EXISTS frames (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                path TEXT NOT NULL DEFAULT '',
+                screen_path TEXT DEFAULT '',
+                audio_path TEXT DEFAULT '',
+                transcription TEXT DEFAULT '',
+                brightness REAL DEFAULT 0,
+                motion_score REAL DEFAULT 0,
+                scene_type TEXT DEFAULT 'normal',
+                claude_description TEXT DEFAULT '',
+                activity TEXT DEFAULT '',
+                screen_extra_paths TEXT DEFAULT '',
+                foreground_window TEXT DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_frames_timestamp ON frames(timestamp);
+
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                frame_id INTEGER REFERENCES frames(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+
+            CREATE TABLE IF NOT EXISTS summaries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                scale TEXT NOT NULL,
+                content TEXT DEFAULT '',
+                frame_count INTEGER DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_summaries_timestamp ON summaries(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_summaries_scale ON summaries(scale);
+
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL UNIQUE,
+                content TEXT DEFAULT '',
+                generated_at TEXT NOT NULL,
+                frame_count INTEGER DEFAULT 0,
+                focus_pct REAL DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS memos (
                 date TEXT PRIMARY KEY,
                 content TEXT DEFAULT '',
                 updated_at TEXT
-            );",
+            );
+
+            CREATE TABLE IF NOT EXISTS window_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                process_name TEXT NOT NULL,
+                window_title TEXT DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_window_events_timestamp ON window_events(timestamp);
+
+            CREATE TABLE IF NOT EXISTS activity_mappings (
+                activity TEXT PRIMARY KEY,
+                meta_category TEXT NOT NULL DEFAULT 'other',
+                first_seen TEXT NOT NULL DEFAULT (datetime('now')),
+                frame_count INTEGER DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform TEXT NOT NULL,
+                platform_message_id TEXT NOT NULL,
+                channel_id TEXT NOT NULL,
+                channel_name TEXT DEFAULT '',
+                guild_id TEXT DEFAULT '',
+                guild_name TEXT DEFAULT '',
+                author_id TEXT NOT NULL,
+                author_name TEXT DEFAULT '',
+                is_self BOOLEAN DEFAULT 0,
+                content TEXT DEFAULT '',
+                timestamp TEXT NOT NULL,
+                metadata TEXT DEFAULT '',
+                UNIQUE(platform, platform_message_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp);
+            ",
         )
-        .map_err(|e| format!("Failed to create memos table: {e}"))?;
+        .map_err(|e| format!("Failed to create tables: {e}"))?;
 
         Ok(Self {
             conn: Mutex::new(conn),

@@ -1,25 +1,9 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-fn get_python_bin() -> PathBuf {
-    if let Ok(p) = std::env::var("HOMELIFE_PYTHON") {
-        return PathBuf::from(p);
-    }
-    // Fallback: find .venv in repo root
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let repo_root = manifest_dir
-        .parent()
-        .and_then(|p| p.parent())
-        .unwrap_or(&manifest_dir);
+use crate::python;
 
-    if cfg!(windows) {
-        repo_root.join(".venv").join("Scripts").join("python.exe")
-    } else {
-        repo_root.join(".venv").join("bin").join("python")
-    }
-}
-
-fn get_daemon_src() -> PathBuf {
+fn get_repo_root() -> PathBuf {
     if let Ok(p) = std::env::var("HOMELIFE_DAEMON_SRC") {
         return PathBuf::from(p);
     }
@@ -33,16 +17,19 @@ fn get_daemon_src() -> PathBuf {
 
 #[tauri::command]
 pub async fn get_devices() -> Result<serde_json::Value, String> {
-    let python = get_python_bin();
-    if !python.exists() {
-        return Ok(serde_json::json!({
-            "cameras": [],
-            "audio": [],
-            "error": "Python venv not found. Run: uv sync"
-        }));
-    }
+    let repo_root = get_repo_root();
+    let python = match python::find_python(&repo_root) {
+        Ok(p) => p,
+        Err(e) => {
+            return Ok(serde_json::json!({
+                "cameras": [],
+                "audio": [],
+                "error": e
+            }));
+        }
+    };
 
-    let daemon_src = get_daemon_src();
+    let daemon_src = &repo_root;
     let script = daemon_src.join("daemon").join("devices.py");
 
     let output = Command::new(&python)

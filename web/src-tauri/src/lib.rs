@@ -2,6 +2,7 @@ mod commands;
 mod db;
 mod models;
 mod process;
+pub mod python;
 
 use db::AppDb;
 use process::DaemonProcess;
@@ -26,7 +27,8 @@ fn resolve_paths(app: &tauri::App) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
 
         let data_dir = repo_root.join("data");
         let config_dir = repo_root.clone();
-        let python_bin = PathBuf::from("python3");
+        let python_bin = python::find_python(&repo_root)
+            .unwrap_or_else(|_| PathBuf::from("python"));
         let daemon_src = repo_root.join("daemon");
 
         (data_dir, config_dir, python_bin, daemon_src)
