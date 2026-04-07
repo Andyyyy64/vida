@@ -115,16 +115,27 @@ impl AppDb {
                 UNIQUE(platform, platform_message_id)
             );
             CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp);
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
             ",
         )
         .map_err(|e| format!("Failed to create tables: {e}"))?;
 
-        Ok(Self {
+        let db = Self {
             conn: Mutex::new(conn),
             data_dir,
             config_dir,
             mappings_cache: Mutex::new(None),
-        })
+        };
+
+        // Migrate file-based settings to DB on first run
+        db.migrate_file_settings();
+
+        Ok(db)
     }
 
     /// Return the meta-category for a given activity string.
@@ -190,5 +201,135 @@ impl AppDb {
         }
 
         map
+    }
+
+    // ── Settings ────────────────────────────────────────────────────
+
+    /// Get a single setting value by key.
+    pub fn get_setting(&self, key: &str) -> Option<String> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            rusqlite::params![key],
+            |row| row.get(0),
+        )
+        .ok()
+    }
+
+    /// Get all settings as a key-value map.
+    pub fn get_all_settings(&self) -> HashMap<String, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut map = HashMap::new();
+        let mut stmt = match conn.prepare("SELECT key, value FROM settings") {
+            Ok(s) => s,
+            Err(_) => return map,
+        };
+        let rows = match stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            Ok(r) => r,
+            Err(_) => return map,
+        };
+        for row in rows.flatten() {
+            map.insert(row.0, row.1);
+        }
+        map
+    }
+
+    /// Upsert multiple settings in a single transaction.
+    pub fn put_settings(&self, entries: &HashMap<String, String>) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        let tx = conn.execute_batch("BEGIN");
+        if tx.is_err() {
+            return Err("Failed to begin transaction".to_string());
+        }
+        for (key, value) in entries {
+            conn.execute(
+                "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = datetime('now')",
+                rusqlite::params![key, value],
+            )
+            .map_err(|e| format!("Failed to upsert setting {key}: {e}"))?;
+        }
+        conn.execute_batch("COMMIT")
+            .map_err(|e| format!("Failed to commit settings: {e}"))?;
+        Ok(())
+    }
+
+    /// Migrate settings from life.toml + .env into the settings table.
+    /// Only runs if the settings table is empty.
+    fn migrate_file_settings(&self) {
+        let count: i64 = {
+            let conn = self.conn.lock().unwrap();
+            conn.query_row("SELECT COUNT(*) FROM settings", [], |row| row.get(0))
+                .unwrap_or(0)
+        };
+        if count > 0 {
+            return; // Already migrated
+        }
+
+        let mut entries = HashMap::new();
+
+        // Import life.toml
+        let toml_path = self.config_dir.join("life.toml");
+        if let Ok(content) = std::fs::read_to_string(&toml_path) {
+            if let Ok(val) = content.parse::<toml::Value>() {
+                Self::flatten_toml("", &val, &mut entries);
+            }
+        }
+
+        // Import .env
+        let env_path = self.config_dir.join(".env");
+        if let Ok(content) = std::fs::read_to_string(&env_path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
+                }
+                if let Some(eq) = trimmed.find('=') {
+                    let key = trimmed[..eq].trim();
+                    let val = trimmed[eq + 1..]
+                        .trim()
+                        .trim_matches('"')
+                        .trim_matches('\'');
+                    entries.insert(format!("env.{key}"), val.to_string());
+                }
+            }
+        }
+
+        if !entries.is_empty() {
+            if let Err(e) = self.put_settings(&entries) {
+                eprintln!("Warning: failed to migrate file settings to DB: {e}");
+            }
+        }
+    }
+
+    /// Recursively flatten a TOML value into dot-separated key-value pairs.
+    fn flatten_toml(prefix: &str, val: &toml::Value, out: &mut HashMap<String, String>) {
+        match val {
+            toml::Value::Table(table) => {
+                for (k, v) in table {
+                    let key = if prefix.is_empty() {
+                        k.clone()
+                    } else {
+                        format!("{prefix}.{k}")
+                    };
+                    Self::flatten_toml(&key, v, out);
+                }
+            }
+            toml::Value::String(s) => {
+                out.insert(prefix.to_string(), s.clone());
+            }
+            toml::Value::Integer(n) => {
+                out.insert(prefix.to_string(), n.to_string());
+            }
+            toml::Value::Float(f) => {
+                out.insert(prefix.to_string(), f.to_string());
+            }
+            toml::Value::Boolean(b) => {
+                out.insert(prefix.to_string(), b.to_string());
+            }
+            _ => {}
+        }
     }
 }

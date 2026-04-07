@@ -34,9 +34,19 @@ def _setup_logging(verbose: bool):
 def cli(ctx, config_path: str | None, verbose: bool):
     """homelife.ai - Personal Life Observer (powered by homelife.ai)"""
     _setup_logging(verbose)
-    cfg_path = Path(config_path) if config_path else None
     ctx.ensure_object(dict)
-    ctx.obj["config"] = Config.load(cfg_path)
+
+    if config_path:
+        # Explicit config file — use legacy file-based loading
+        ctx.obj["config"] = Config.load(Path(config_path))
+    else:
+        # Prefer DB-based config (settings table in life.db)
+        data_dir = Path(os.environ.get("DATA_DIR", "data"))
+        db_path = data_dir / "life.db"
+        if db_path.exists():
+            ctx.obj["config"] = Config.load_from_db(db_path)
+        else:
+            ctx.obj["config"] = Config.load()
 
 
 @cli.command()

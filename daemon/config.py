@@ -160,6 +160,90 @@ class Config:
         cfg._load_env_secrets()
         return cfg
 
+    @classmethod
+    def load_from_db(cls, db_path: Path) -> Config:
+        """Load config from the settings table in SQLite."""
+        import sqlite3
+
+        cfg = cls()
+        cfg.db_path = db_path
+        cfg.data_dir = db_path.parent
+        cfg.pid_file = cfg.data_dir / "life.pid"
+
+        if not db_path.exists():
+            return cfg
+
+        conn = sqlite3.connect(str(db_path), timeout=5)
+        conn.execute("PRAGMA journal_mode=WAL")
+        try:
+            rows = conn.execute("SELECT key, value FROM settings").fetchall()
+        except sqlite3.OperationalError:
+            conn.close()
+            return cfg
+        conn.close()
+
+        s = {k: v for k, v in rows}
+
+        # LLM
+        if v := s.get("llm.provider"):
+            cfg.llm.provider = v
+        if v := s.get("llm.gemini_model"):
+            cfg.llm.gemini_model = v
+        if v := s.get("llm.claude_model"):
+            cfg.llm.claude_model = v
+        # Capture
+        if v := s.get("capture.device"):
+            cfg.capture.device = int(v)
+        if v := s.get("capture.interval_sec"):
+            cfg.capture.interval_sec = int(v)
+        if v := s.get("capture.audio_device"):
+            cfg.capture.audio_device = v
+        # Presence
+        if v := s.get("presence.enabled"):
+            cfg.presence.enabled = v == "true"
+        if v := s.get("presence.sleep_start_hour"):
+            cfg.presence.sleep_start_hour = int(v)
+        if v := s.get("presence.sleep_end_hour"):
+            cfg.presence.sleep_end_hour = int(v)
+        # Embedding
+        if v := s.get("embedding.enabled"):
+            cfg.embedding.enabled = v == "true"
+        if v := s.get("embedding.model"):
+            cfg.embedding.model = v
+        if v := s.get("embedding.dimensions"):
+            cfg.embedding.dimensions = int(v)
+        # Chat
+        if v := s.get("chat.enabled"):
+            cfg.chat.enabled = v == "true"
+        if v := s.get("chat.discord.enabled"):
+            cfg.chat.discord.enabled = v == "true"
+        if v := s.get("chat.discord.poll_interval"):
+            cfg.chat.discord.poll_interval = int(v)
+        if v := s.get("chat.discord.backfill_months"):
+            cfg.chat.discord.backfill_months = int(v)
+        # Notify
+        if v := s.get("notify.enabled"):
+            cfg.notify.enabled = v == "true"
+        if v := s.get("notify.provider"):
+            cfg.notify.provider = v
+        if v := s.get("notify.webhook_url"):
+            cfg.notify.webhook_url = v
+        # Top-level
+        if v := s.get("knowledge_interval_days"):
+            cfg.knowledge_interval_days = int(v)
+        if v := s.get("retention_days"):
+            cfg.retention_days = int(v)
+
+        # Inject secrets into os.environ for LLM/embedding modules
+        env_keys = ["GEMINI_API_KEY", "DISCORD_USER_TOKEN", "DISCORD_USER_ID", "NOTIFY_WEBHOOK_URL"]
+        for ek in env_keys:
+            if v := s.get(f"env.{ek}"):
+                os.environ[ek] = v
+
+        # Also populate config fields from env
+        cfg._load_env_secrets()
+        return cfg
+
     def _load_env_secrets(self) -> None:
         """Load secrets from environment variables (.env). Env vars take priority over TOML."""
         if v := os.environ.get("DISCORD_USER_TOKEN"):
