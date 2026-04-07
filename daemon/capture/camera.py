@@ -20,11 +20,14 @@ class Camera:
 
     def open(self) -> bool:
         if sys.platform == "darwin":
-            # macOS: AVFoundation backend
             self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_AVFOUNDATION)
         elif sys.platform == "win32":
-            # Windows: DirectShow backend
-            self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_DSHOW)
+            # Windows: try multiple backends — DSHOW, MSMF, then default
+            for backend in (cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY):
+                self._cap = cv2.VideoCapture(self._config.device, backend)
+                if self._cap.isOpened():
+                    break
+                self._cap.release()
         else:
             # Linux/WSL2: V4L2 + MJPEG (required for USB cameras via usbipd)
             self._cap = cv2.VideoCapture(self._config.device, cv2.CAP_V4L2)
