@@ -138,9 +138,13 @@
     },
     "apiKeys": {
       "title": "API keys",
-      "storedIn": "(stored in .env)",
-      "hint": "Leave blank to keep the current value. New values are written to <code>.env</code>.",
+      "storedIn": "(stored in DB)",
+      "hint": "Leave blank to keep the current value.",
       "notSet": "Not set"
+    },
+    "warnings": {
+      "apiKeyRequired": "LLM API key (GEMINI_API_KEY) is not set. Enter an API key to enable AI analysis.",
+      "profileRecommended": "Profile is empty. Filling it in improves AI analysis accuracy."
     }
   },
   "liveFeed": {

@@ -138,9 +138,13 @@
     },
     "apiKeys": {
       "title": "API キー",
-      "storedIn": "（.env に保存）",
-      "hint": "空欄のままにすると現在の値が維持されます。新しい値は <code>.env</code> に書き込まれます。",
+      "storedIn": "（DB に保存）",
+      "hint": "空欄のままにすると現在の値が維持されます。",
       "notSet": "未設定"
+    },
+    "warnings": {
+      "apiKeyRequired": "LLM APIキー（GEMINI_API_KEY）が設定されていません。AI分析を使うにはAPIキーを入力してください。",
+      "profileRecommended": "プロフィールが未記入です。記入するとAI分析の精度が向上します。"
     }
   },
   "liveFeed": {

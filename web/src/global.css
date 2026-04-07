@@ -1812,6 +1812,30 @@ pre {
   gap: var(--space-lg);
 }
 
+.settings-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.settings-warning {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm, 4px);
+  background: #fef3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-warning {
+    background: #332b00;
+    color: #ffc107;
+    border-color: #665500;
+  }
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;

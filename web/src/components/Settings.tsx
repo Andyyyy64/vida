@@ -61,7 +61,12 @@ export function Settings({ onClose }: Props) {
   );
   useEffect(() => {
     window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    // Prevent background scroll while modal is open
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = '';
+    };
   }, [handleEsc]);
 
   function setLlm<K extends keyof SettingsData['llm']>(k: K, v: SettingsData['llm'][K]) {
@@ -110,6 +115,10 @@ export function Settings({ onClose }: Props) {
   const cams = devices?.cameras ?? [];
   const mics = devices?.audio ?? [];
 
+  // Check for missing API key (at least one LLM key required)
+  const needsApiKey = data && !data.env_masked.GEMINI_API_KEY;
+  const needsProfile = !context.trim();
+
   const toggleLang = () => {
     i18n.changeLanguage(i18n.language === 'ja' ? 'en' : 'ja');
   };
@@ -132,6 +141,22 @@ export function Settings({ onClose }: Props) {
           <div className="settings-loading">{error || t('common.loading')}</div>
         ) : (
           <div className="settings-body">
+
+            {/* ── Warnings ── */}
+            {(needsApiKey || needsProfile) && (
+              <div className="settings-warnings">
+                {needsApiKey && (
+                  <div className="settings-warning">
+                    {t('settings.warnings.apiKeyRequired')}
+                  </div>
+                )}
+                {needsProfile && (
+                  <div className="settings-warning">
+                    {t('settings.warnings.profileRecommended')}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Profile (context.md) ── */}
             <section className="settings-section">
