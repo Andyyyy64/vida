@@ -12,7 +12,7 @@
 
 ## Windows Native
 
-WSL2 不要。カメラは DirectShow、音声は WASAPI（sounddevice）、画面キャプチャとウィンドウ監視は PowerShell を使用。Electron デスクトップアプリがネイティブ Windows プロセスとして動作します。
+WSL2 不要。カメラは DirectShow、音声は WASAPI（sounddevice）、画面キャプチャとウィンドウ監視は PowerShell を使用。Tauri デスクトップアプリがネイティブ Windows プロセスとして動作します。
 
 ### 1. Python 3.12+
 
@@ -271,28 +271,22 @@ EOF
 
 ### デスクトップアプリ（推奨）
 
+[Releases](https://github.com/Andyyyy64/vida/releases) からインストーラーをダウンロードして実行。初回起動時にPython環境が自動セットアップされます。
+
+開発モードで起動する場合:
+
 ```bash
-# web/ ディレクトリから — デーモン・サーバー・Electron ウィンドウを一括起動
-cd web && npm run electron:start
+cd web && npx tauri dev
 ```
 
-Windows（PowerShell）の場合:
+アプリがデーモンを自動管理します。ウィンドウを閉じるとシステムトレイに格納されます。
 
-```powershell
-cd web
-npm run electron:start
-```
-
-アプリがデーモンとサーバーを自動管理します。ウィンドウを閉じるとシステムトレイに格納されます。
-
-### CLI / ブラウザモード
+### CLI モード
 
 ```bash
 life start -d       # デーモンをバックグラウンドで起動
-cd web && npm start # Web サーバーを起動
 ```
 
-- Web UI: http://localhost:3001
 - ライブフィード: http://localhost:3002
 
 ### 動作確認

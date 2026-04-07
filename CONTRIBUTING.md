@@ -52,7 +52,7 @@ fix: correct timezone offset in timeline view
 ### TypeScript
 
 - Enable strict mode.
-- Use Hono for API routes and Vite for builds.
+- Use Tauri IPC commands for API, Vite for frontend builds.
 - Prefer explicit types over `any`.
 
 ## Testing

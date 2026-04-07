@@ -12,7 +12,7 @@
 
 ## Windows (Native)
 
-Runs directly on Windows — no WSL2 required. Camera uses DirectShow, audio uses WASAPI via sounddevice, screen capture and window tracking use PowerShell. The Electron desktop app runs as a native Windows process.
+Runs directly on Windows — no WSL2 required. Camera uses DirectShow, audio uses WASAPI via sounddevice, screen capture and window tracking use PowerShell. The Tauri desktop app runs as a native Windows process.
 
 ### 1. Python 3.12+
 
@@ -271,28 +271,22 @@ EOF
 
 ### Desktop app (recommended)
 
+Download the installer from [Releases](https://github.com/Andyyyy64/vida/releases) and run it. The Python environment is set up automatically on first launch.
+
+For development mode:
+
 ```bash
-# From the web/ directory — starts daemon, web server, and Electron window
-cd web && npm run electron:start
+cd web && npx tauri dev
 ```
 
-On Windows (PowerShell):
+The app manages the daemon automatically. It minimizes to the system tray when you close the window.
 
-```powershell
-cd web
-npm run electron:start
-```
-
-The app manages the daemon and web server automatically. It minimizes to the system tray when you close the window.
-
-### CLI / browser mode
+### CLI mode
 
 ```bash
 life start -d       # Start daemon in background
-cd web && npm start # Start web server
 ```
 
-- Web UI: http://localhost:3001
 - Live feed: http://localhost:3002
 
 ### Verify it's working

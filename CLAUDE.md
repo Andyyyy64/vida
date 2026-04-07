@@ -1,6 +1,6 @@
-# homelife.ai
+# vida
 
-A personal AI system for monitoring, managing, and analyzing your daily life.
+> *vida* — Spanish for "life." A personal AI system for monitoring, managing, and analyzing your daily life.
 
 ## Project Direction
 
@@ -17,14 +17,14 @@ Improvement priorities:
 ## Architecture
 
 ```
-daemon (Python)          web (Node.js/Hono)        frontend (React)
-  ├─ Camera capture        ├─ REST API               ├─ Timeline view
-  ├─ Screen capture        ├─ SQLite read-only       ├─ Frame detail
-  ├─ Audio capture         ├─ Media serving          ├─ Summary panel
-  ├─ Window monitor        ├─ MJPEG proxy            ├─ Live feed
-  ├─ Presence detection    └─ Static file serving    ├─ Dashboard
-  ├─ LLM analysis                                    ├─ Search
-  ├─ Multimodal embedding                            └─ Activity heatmap
+daemon (Python)          tauri (Rust)              frontend (React)
+  ├─ Camera capture        ├─ rusqlite queries        ├─ Timeline view
+  ├─ Screen capture        ├─ IPC commands            ├─ Frame detail
+  ├─ Audio capture         ├─ Asset Protocol          ├─ Summary panel
+  ├─ Window monitor        ├─ System tray             ├─ Live feed
+  ├─ Presence detection    ├─ Daemon lifecycle        ├─ Dashboard
+  ├─ LLM analysis          └─ Auto venv setup         ├─ Search
+  ├─ Multimodal embedding                             └─ Activity heatmap
   ├─ Summary generation
   ├─ Report generation
   ├─ Chat integration
@@ -33,10 +33,14 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
   └─ MJPEG live server (port 3002)
 ```
 
-- Daemon writes to SQLite, web reads it (WAL mode for concurrency)
+- **Tauri v2** desktop app — Rust core + OS WebView (no Chromium bundling)
+- Frontend communicates via `invoke()` IPC, not HTTP fetch
+- Media files served via Tauri Asset Protocol (`asset://`)
+- Daemon writes to SQLite, Tauri reads it (WAL mode for concurrency)
 - Window monitor runs a persistent PowerShell process with its own SQLite connection
 - Shared `data/` directory: frames/, screens/, audio/, life.db
-- LLM provider is abstracted: Gemini or Claude, configured in life.toml
+- Settings stored in SQLite `settings` table (not files)
+- LLM provider: Gemini (configured in DB settings)
 - Multimodal embedding via Gemini Embedding 2 (camera, screen, audio, text → unified vector space)
 - sqlite-vec for vector storage and KNN cosine similarity search
 
@@ -45,30 +49,34 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 - `daemon/` — Python package (daemon, capture, analysis, LLM, embedding, storage)
 - `daemon/cli.py` — CLI entry point
 - `daemon/daemon.py` — Main observer loop
-- `daemon/config.py` — Config loading from life.toml
+- `daemon/config.py` — Config loading from DB (with life.toml fallback)
 - `daemon/embedding.py` — Multimodal embedder (Gemini Embedding 2) for frames, chat, summaries
 - `daemon/activity.py` — ActivityManager: DB-backed activity normalization + meta-category mapping
 - `daemon/analyzer.py` — Frame analysis and summary generation
 - `daemon/report.py` — Daily report generation
-- `daemon/llm/` — LLM provider abstraction (base, gemini, claude)
-- `daemon/capture/` — Camera, screen (PowerShell/WSL2), audio (ALSA), window (Win32 P/Invoke)
+- `daemon/llm/` — LLM provider abstraction (base, gemini)
+- `daemon/capture/` — Camera, screen (PowerShell/WSL2), audio (ALSA/sounddevice), window (Win32 P/Invoke)
 - `daemon/analysis/` — Motion, scene, change detection, presence, transcription
 - `daemon/storage/database.py` — SQLite schema, migrations, queries, sqlite-vec vector store
 - `daemon/storage/models.py` — Frame, Event, Summary, Report, ChatMessage dataclasses
 - `daemon/notify.py` — Discord/LINE webhook notifications
 - `daemon/chat/` — Chat platform adapters (base, discord, manager)
-- `web/server/` — Hono API server + routes
-- `web/server/db.ts` — SQLite connection (better-sqlite3, read-only)
-- `web/server/routes/stats.ts` — Stats, activities, app usage, date range endpoints
-- `web/server/routes/activities.ts` — Activity mappings from DB (cached 60s)
+- `web/src-tauri/` — Tauri v2 Rust backend
+- `web/src-tauri/src/lib.rs` — App setup, path resolution, daemon spawn, tray
+- `web/src-tauri/src/db.rs` — AppDb: SQLite connection, settings CRUD, activity mappings cache
+- `web/src-tauri/src/commands/` — 18 IPC command modules (frames, stats, settings, etc.)
+- `web/src-tauri/src/process.rs` — Daemon process lifecycle (spawn/stop)
+- `web/src-tauri/src/python.rs` — Python discovery (.venv → python3 → python)
+- `web/src-tauri/src/models.rs` — Serde structs for IPC
+- `web/src-tauri/tauri.conf.json` — App config, bundle resources, window settings
 - `web/src/` — React frontend
-- `web/src/lib/activity.ts` — Shared activity colors, labels, dynamic meta-category mapping
+- `web/src/lib/api.ts` — IPC layer using `invoke()` for all API calls
+- `web/src/lib/media.ts` — Asset Protocol URL helper (`convertFileSrc`)
+- `web/src/lib/activity.ts` — Activity colors, labels, dynamic meta-category mapping
 - `web/src/components/Dashboard.tsx` — Dashboard with focus score, pie chart, app usage, sessions
 - `web/src/components/DetailPanel.tsx` — Frame detail with images, audio, window info, metadata
-- `life.toml` — Runtime config
-- `.env` — API keys (GEMINI_API_KEY)
+- `web/src/components/Settings.tsx` — Settings modal (reads/writes DB via IPC)
 - `data/` — Runtime data (DB, frames, screens, audio)
-- `docker-compose.yml` — Container orchestration
 
 ## Database Tables
 
@@ -80,6 +88,7 @@ daemon (Python)          web (Node.js/Hono)        frontend (React)
 - `reports` — Daily auto-generated reports
 - `memos` — Daily user memos (editable today only)
 - `chat_messages` — Messages from chat platforms (Discord, etc.) with unified schema
+- `settings` — Key-value settings store (replaces life.toml + .env)
 - `frames_fts` / `summaries_fts` — FTS5 trigram indexes for full-text search
 - `vec_items` — sqlite-vec vec0 virtual table (float[3072] cosine distance, unified embedding store)
 - `vec_items_meta` — Embedding metadata (item_type, source_id, timestamp, preview) joined to vec_items
@@ -108,19 +117,12 @@ tick (30s) → LLM analysis → embed_frame (background thread)
 
 **Search:** `embed_text(query)` with `task_type=RETRIEVAL_QUERY` → `search_similar()` → cross-type KNN results
 
-**Config** (`life.toml`):
-```toml
-[embedding]
-enabled = true
-model = "gemini-embedding-2-preview"
-dimensions = 3072  # native output; recommended: 768, 1536, 3072
-```
-
 ## Conventions
 
 - Python: dataclasses, type hints, logging module
-- TypeScript: strict mode, Hono for API, Vite for build
+- TypeScript: strict mode, Vite for build
+- Rust: Tauri v2 commands, rusqlite for DB
 - Database: SQLite with WAL mode, relative paths for media files
-- Config: TOML for app config, .env for secrets
+- Config: All settings in SQLite `settings` table
 - Git commit prefixes: feat, fix, docs, refactor
 - Do not git commit unless explicitly instructed by the user

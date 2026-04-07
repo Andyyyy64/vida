@@ -30,7 +30,7 @@ cd web; npm install; cd ..
 "GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
 
 # 3. Launch the desktop app
-cd web; npm run electron:start
+cd web; npx tauri dev
 ```
 
 > **Permissions:** When prompted, allow Camera and Microphone access in **Settings → Privacy & Security**.
@@ -51,7 +51,7 @@ cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
 
 # 3. Launch the desktop app
-cd web && npm run electron:start
+cd web && npx tauri dev
 ```
 
 > **Permissions:** Grant Camera, Microphone, Screen Recording, and Accessibility access for your terminal in **System Settings → Privacy & Security**. See the [macOS permission guide](getting-started.md#5-macos-privacy-permissions) for details.
@@ -70,7 +70,7 @@ echo "GEMINI_API_KEY=your-key-here" > .env
 
 # Start daemon + web UI
 ./start.sh
-# Open http://localhost:3001
+# Desktop app opens automatically
 ```
 
 For WSL2 camera setup (usbipd), see the [full guide](getting-started.md#windows-wsl2).
@@ -84,7 +84,7 @@ life look      # Capture + analyze a single frame
 life status    # Check daemon is running
 ```
 
-Open http://localhost:3001 — you should see the timeline with your first captured frame.
+The desktop app opens automatically with the timeline. Alternatively, download a pre-built installer from [Releases](https://github.com/Andyyyy64/vida/releases).
 
 ---
 
@@ -174,7 +174,7 @@ Collects conversations from external chat platforms to enrich the "externalized 
 ## Architecture
 
 ```
-daemon/ (Python)         web/ (Node.js/Hono)       frontend (React)
+daemon/ (Python)         tauri/ (Rust)             frontend (React)
   ├─ Camera capture        ├─ REST API               ├─ Timeline view
   ├─ Screen capture        ├─ SQLite read-only       ├─ Frame detail
   ├─ Audio capture         ├─ Media serving          ├─ Summary panel
@@ -251,16 +251,17 @@ daemon/                  # Python package
       ├─ database.py     # SQLite schema, migrations, queries
       └─ models.py       # Frame, Event, Summary, Report dataclasses
 
-web/                     # Node.js web application
-  ├─ server/
-  │   ├─ index.ts        # Hono app setup, media serving
-  │   ├─ db.ts           # SQLite connection (read-only)
-  │   └─ routes/         # API route handlers
+web/                     # Tauri v2 desktop application
+  ├─ src-tauri/
+  │   ├─ src/lib.rs      # App setup, daemon lifecycle, tray
+  │   ├─ src/db.rs       # SQLite connection, settings, cache
+  │   ├─ src/commands/   # IPC command handlers (18 modules)
+  │   └─ tauri.conf.json # App config, bundle resources
   └─ src/
       ├─ App.tsx         # Main SPA orchestrator
       ├─ components/     # React components
       ├─ hooks/          # Data fetching with 30s polling
-      └─ lib/            # API client, types, activity module, utilities
+      └─ lib/            # IPC client, types, activity module, utilities
 
 data/                    # Runtime data (gitignored)
   ├─ frames/             # Camera JPEGs (YYYY-MM-DD/*.jpg)
@@ -457,6 +458,6 @@ Daily user memos: date (primary key), content, updated_at. Editable only for tod
 - **Daemon**: Python 3.12 / Click / OpenCV / SQLite (WAL mode)
 - **LLM**: Google Gemini (image + audio) / Anthropic Claude (via CLI)
 - **Window tracking**: PowerShell / Win32 P/Invoke (`GetForegroundWindow`)
-- **Web server**: Hono 4 / better-sqlite3 / Node.js 22
+- **Desktop**: Tauri v2 / Rust / rusqlite / WebView2 (Windows) / WebKitGTK (Linux) / WKWebView (macOS)
 - **Frontend**: React 19 / TypeScript / Vite 6
 - **Infra**: Docker Compose / WSL2
