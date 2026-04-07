@@ -229,18 +229,26 @@ After changing permissions, **restart your terminal** before running `life start
 
 ### API key
 
+**Desktop app (recommended):** Launch the app, open **Settings**, and enter your Gemini API key there. Settings are stored in the SQLite database (`data/life.db`).
+
+**CLI-only fallback:** If running the daemon without the desktop app, set the API key via `.env`:
+
 ```bash
 echo "GEMINI_API_KEY=your-key-here" > .env
 ```
 
 Get a Gemini API key at [Google AI Studio](https://aistudio.google.com/).
 
-### life.toml (minimal)
+### Configuration
+
+**Desktop app:** All settings are managed via the **Settings UI** in the app. Defaults are applied on first launch.
+
+**CLI-only fallback:** For headless/CLI usage, you can configure settings via `life.toml`:
 
 ```toml
 [llm]
 provider = "gemini"
-gemini_model = "gemini-2.5-flash"
+gemini_model = "gemini-3.1-flash-lite-preview"
 
 [capture]
 interval_sec = 30
@@ -312,7 +320,7 @@ usbipd attach --wsl --busid <BUSID>
 ```bash
 # Check device number inside WSL2
 v4l2-ctl --list-devices
-# Update device in life.toml if needed:
+# Update device in Settings UI, or in life.toml for CLI-only use:
 # [capture]
 # device = 1   # if camera is /dev/video1
 ```

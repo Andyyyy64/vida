@@ -229,18 +229,26 @@ cd web && npm install && cd ..
 
 ### API キー
 
+**デスクトップアプリ（推奨）:** アプリを起動し、**設定**パネルでGemini APIキーを入力してください。設定はSQLiteデータベース（`data/life.db`）に保存されます。
+
+**CLIのみのフォールバック:** デスクトップアプリなしでデーモンを実行する場合は、`.env`でAPIキーを設定します:
+
 ```bash
 echo "GEMINI_API_KEY=your-key-here" > .env
 ```
 
 Gemini API キーは [Google AI Studio](https://aistudio.google.com/) で取得できます。
 
-### life.toml（最小構成）
+### 設定
+
+**デスクトップアプリ:** すべての設定はアプリ内の**設定UI**で管理されます。初回起動時にデフォルト値が自動適用されます。
+
+**CLIのみのフォールバック:** ヘッドレス/CLI使用の場合は、`life.toml`で設定できます:
 
 ```toml
 [llm]
 provider = "gemini"
-gemini_model = "gemini-2.5-flash"
+gemini_model = "gemini-3.1-flash-lite-preview"
 
 [capture]
 interval_sec = 30
@@ -312,7 +320,7 @@ usbipd attach --wsl --busid <BUSID>
 ```bash
 # WSL2 側でデバイス確認
 v4l2-ctl --list-devices
-# life.toml の device 番号を確認・変更
+# 設定UIでdevice番号を変更、またはCLIのみの場合はlife.tomlで変更:
 # [capture]
 # device = 1   # /dev/video1 なら 1
 ```

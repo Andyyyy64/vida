@@ -4,6 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 0.2.x   | :white_check_mark: |
 | 0.1.x   | :white_check_mark: |
 
 ## Local-Only Architecture
@@ -55,7 +56,7 @@ We ask that you:
 
 ## Security Best Practices for Users
 
-- Keep your `.env` file (containing API keys) out of version control and restrict its file permissions.
-- Run the daemon and web server on a trusted local network or localhost only.
+- Keep your `data/life.db` settings table (containing API keys) and `.env` file out of version control and restrict file permissions on the `data/` directory.
+- Run the daemon and MJPEG live feed (port 3002) on a trusted local network or localhost only.
 - Regularly update dependencies to receive security patches.
-- Review `life.toml` configuration to ensure capture settings match your privacy preferences.
+- Review settings in the Settings UI to ensure capture settings match your privacy preferences.

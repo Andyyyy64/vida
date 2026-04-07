@@ -10,6 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - i18n localization with Japanese and English language support
 
+## [0.2.0] - 2026-04-07
+
+### Added
+
+- Tauri v2 desktop application replacing Electron + Hono (93-96% smaller binaries)
+- Settings stored in SQLite DB (`settings` table), replacing file-based `life.toml` / `.env`
+- Auto virtual environment (venv) setup on first launch
+- System tray with close-to-tray behavior
+- Linux support (.deb, .AppImage)
+
+### Changed
+
+- Renamed project from "david" to "vida"
+- Removed Node.js web server; all API communication via Tauri IPC commands
+- Migrated frontend data fetching from HTTP fetch to Tauri `invoke()`
+
 ## [0.1.0] - 2026-03-04
 
 ### Added

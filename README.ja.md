@@ -28,6 +28,7 @@ cd web; npm install; cd ..
 
 # 2. APIキーを設定
 "GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
+# 初回起動後は、アプリ内の設定パネルからもAPIキーを設定できます。
 
 # 3. デスクトップアプリを起動
 cd web; npx tauri dev
@@ -49,6 +50,7 @@ cd web && npm install && cd ..
 
 # 2. APIキーを設定
 echo "GEMINI_API_KEY=your-key-here" > .env
+# 初回起動後は、アプリ内の設定パネルからもAPIキーを設定できます。
 
 # 3. デスクトップアプリを起動
 cd web && npx tauri dev
@@ -67,6 +69,7 @@ cd vida
 uv sync
 cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
+# 初回起動後は、アプリ内の設定パネルからもAPIキーを設定できます。
 
 # デーモン + Web UIを起動
 ./start.sh
@@ -97,7 +100,7 @@ life status    # デーモンの状態確認
 - [セットアップ](#セットアップ) — 必要要件、設定、Docker
 - [CLIコマンド](#cliコマンド)
 - [設定リファレンス](#設定)
-- [Web API](#web-api)
+- [IPCコマンド](#ipcコマンド)
 - [データベーススキーマ](#データベーススキーマ)
 - [技術スタック](#技術スタック)
 
@@ -167,11 +170,11 @@ life status    # デーモンの状態確認
 
 ```
 daemon/ (Python)         tauri/ (Rust)             frontend (React)
-  ├─ カメラキャプチャ      ├─ REST API               ├─ タイムライン
-  ├─ 画面キャプチャ        ├─ SQLite 読み取り専用     ├─ フレーム詳細
-  ├─ 音声キャプチャ        ├─ メディア配信            ├─ サマリーパネル
-  ├─ ウィンドウ監視        ├─ MJPEGプロキシ          ├─ ライブフィード
-  ├─ 在席検出             └─ 静的ファイル配信         ├─ ダッシュボード
+  ├─ カメラキャプチャ      ├─ IPCコマンド             ├─ タイムライン
+  ├─ 画面キャプチャ        ├─ rusqliteクエリ          ├─ フレーム詳細
+  ├─ 音声キャプチャ        ├─ アセットプロトコル       ├─ サマリーパネル
+  ├─ ウィンドウ監視        ├─ デーモン管理            ├─ ライブフィード
+  ├─ 在席検出             └─ システムトレイ           ├─ ダッシュボード
   ├─ LLM分析                                        ├─ 検索
   ├─ サマリー生成                                    ├─ ヒートマップ
   ├─ レポート生成                                    └─ モバイル対応
@@ -291,19 +294,7 @@ data/                    # 実行時データ（gitignore済み）
 
 ### 設定
 
-`life.toml`で動作を設定します（初回起動時に自動生成されます。手動作成も可）:
-
-```toml
-[llm]
-provider = "gemini"
-gemini_model = "gemini-2.5-flash"
-
-[capture]
-interval_sec = 30
-
-[presence]
-enabled = true
-```
+設定はデスクトップアプリの**設定UI**で管理されます（`data/life.db`の`settings`テーブルに保存）。初回起動時にデフォルト値が自動適用されます。CLIのみで使用する場合は、`life.toml`と`.env`がフォールバックとして機能します。
 
 **ヒント:** `data/context.md`に名前・職業・習慣を書くと、AIがより正確なアクティビティ説明を生成します。
 
@@ -338,79 +329,77 @@ docker compose up
 
 ## 設定
 
-`life.toml`の全オプション:
+設定はデスクトップアプリの**設定UI**で管理されます（`data/life.db`の`settings`テーブルに保存）。CLIのみで使用する場合は`life.toml`と`.env`がフォールバックとして機能します。以下は利用可能な設定キー（DBキー名）です:
 
-```toml
-data_dir = "data"
+| キー | デフォルト | 説明 |
+|------|-----------|------|
+| `data_dir` | `"data"` | データディレクトリパス |
+| `capture.device` | `0` | カメラデバイスID (/dev/videoN) |
+| `capture.interval_sec` | `30` | キャプチャ間隔（秒） |
+| `capture.width` | `640` | キャプチャ幅 |
+| `capture.height` | `480` | キャプチャ高さ |
+| `capture.jpeg_quality` | `85` | JPEG品質 |
+| `capture.audio_device` | `""` | 音声デバイス（空欄 = 自動検出） |
+| `capture.audio_sample_rate` | `44100` | 音声サンプルレート |
+| `analysis.motion_threshold` | `0.02` | MOG2前景ピクセル比率 |
+| `analysis.brightness_dark` | `40.0` | これ以下 = DARK |
+| `analysis.brightness_bright` | `180.0` | これ以上 = BRIGHT |
+| `llm.provider` | `"gemini"` | "gemini" または "claude" |
+| `llm.claude_model` | `"haiku"` | Claudeモデル名 |
+| `llm.gemini_model` | `"gemini-3.1-flash-lite-preview"` | Geminiモデル名 |
+| `presence.enabled` | `true` | 在席検出の有効化 |
+| `presence.absent_threshold_ticks` | `3` | 離席判定までのティック数 |
+| `presence.sleep_start_hour` | `23` | 就寝検出開始時刻 |
+| `presence.sleep_end_hour` | `8` | 就寝検出終了時刻 |
+| `notify.provider` | `"discord"` | "discord" または "line" |
+| `notify.webhook_url` | `""` | Webhook URL |
+| `notify.enabled` | `false` | 通知の有効化 |
+| `chat.enabled` | `false` | チャット連携のマスタースイッチ |
+| `chat.discord.enabled` | `false` | Discordアダプターの有効化 |
+| `chat.discord.user_token` | `""` | Discordユーザートークン |
+| `chat.discord.user_id` | `""` | DiscordユーザーID |
+| `chat.discord.poll_interval` | `60` | ポーリング間隔（秒） |
+| `chat.discord.backfill_months` | `3` | 初回起動時の過去履歴取得月数（0でスキップ） |
 
-[capture]
-device = 0              # カメラデバイスID (/dev/videoN)
-interval_sec = 30       # キャプチャ間隔（秒）
-width = 640
-height = 480
-jpeg_quality = 85
-audio_device = ""       # ALSAデバイス（空欄 = 自動検出）
-audio_sample_rate = 44100
+## IPCコマンド
 
-[analysis]
-motion_threshold = 0.02    # MOG2前景ピクセル比率
-brightness_dark = 40.0     # これ以下 = DARK
-brightness_bright = 180.0  # これ以上 = BRIGHT
+フロントエンドはHTTPエンドポイントではなく、Tauriの`invoke()`コマンドでRustバックエンドと通信します。コマンドは`web/src-tauri/src/commands/`で定義されています。
 
-[llm]
-provider = "gemini"              # "gemini" または "claude"
-claude_model = "haiku"
-gemini_model = "gemini-2.5-flash"
-
-[presence]
-enabled = true
-absent_threshold_ticks = 3       # 離席判定までのティック数
-sleep_start_hour = 23
-sleep_end_hour = 8
-
-[notify]
-provider = "discord"             # "discord" または "line"
-webhook_url = ""
-enabled = false
-
-[chat]
-enabled = false                  # チャット連携のマスタースイッチ
-
-[chat.discord]
-enabled = false
-user_token = ""                  # Discordユーザートークン
-user_id = ""                     # あなたのDiscordユーザーID
-poll_interval = 60               # ポーリング間隔（秒）
-backfill_months = 3              # 初回起動時の過去履歴取得月数（0でスキップ）
-```
-
-## Web API
-
-| エンドポイント | 説明 |
-|---|---|
-| `GET /api/frames?date=YYYY-MM-DD` | 指定日のフレーム一覧 |
-| `GET /api/frames/latest` | 最新フレームを取得 |
-| `GET /api/frames/:id` | IDでフレームを取得 |
-| `GET /api/summaries?date=...&scale=...` | サマリー一覧 |
-| `GET /api/events?date=...` | イベント一覧 |
-| `GET /api/stats?date=...` | 日次統計（カウント、平均、時間別アクティビティ） |
-| `GET /api/stats/activities?date=...` | アクティビティ別内訳（継続時間・時間別詳細） |
-| `GET /api/stats/apps?date=...` | ウィンドウイベントからのアプリ使用時間（切り替え回数付き） |
-| `GET /api/stats/dates` | データのある日付一覧 |
-| `GET /api/stats/range?from=...&to=...` | 期間別日次統計（メタカテゴリ内訳付き） |
-| `GET /api/sessions?date=...` | アクティビティセッション（連続フレームのグループ化） |
-| `GET /api/reports?date=...` | 日次レポート取得 |
-| `GET /api/reports` | 最近のレポート一覧 |
-| `GET /api/activities` | アクティビティカテゴリ一覧（メタカテゴリ付き） |
-| `GET /api/activities/mappings` | アクティビティ → メタカテゴリ マッピングテーブル |
-| `GET /api/search?q=...&from=...&to=...` | 全文検索（フレーム + サマリー） |
-| `GET /api/export/frames?date=...&format=csv\|json` | フレームをCSV/JSONでエクスポート |
-| `GET /api/export/summaries?from=...&to=...&format=csv\|json` | サマリーをエクスポート |
-| `GET /api/export/report?date=...` | 日次レポートをJSONでエクスポート |
-| `GET /api/live/stream` | MJPEGストリームプロキシ |
-| `GET /api/live/frame` | JPEGスナップショット（1枚） |
-| `GET /health` | ヘルスチェック |
-| `GET /media/{path}` | 画像・音声ファイルの配信 |
+| コマンド | モジュール | 説明 |
+|---------|----------|------|
+| `get_frames` | frames | 指定日のフレーム一覧 |
+| `get_frame` | frames | IDでフレームを取得 |
+| `get_latest_frame` | frames | 最新フレームを取得 |
+| `get_summaries` | summaries | 日付・スケール別サマリー一覧 |
+| `get_events` | events | 指定日のイベント一覧 |
+| `get_stats` | stats | 日次統計（カウント、平均、時間別アクティビティ） |
+| `get_activities` | stats | アクティビティ別内訳（継続時間・時間別詳細） |
+| `get_apps` | stats | ウィンドウイベントからのアプリ使用時間（切り替え回数付き） |
+| `get_dates` | stats | データのある日付一覧 |
+| `get_range_stats` | stats | 期間別日次統計（メタカテゴリ内訳付き） |
+| `get_sessions` | sessions | アクティビティセッション（連続フレームのグループ化） |
+| `get_report` | reports | 日次レポート取得 |
+| `list_reports` | reports | 最近のレポート一覧 |
+| `list_activities` | activities | アクティビティカテゴリ一覧（メタカテゴリ付き） |
+| `get_activity_mappings` | activities | アクティビティ → メタカテゴリ マッピングテーブル |
+| `search_text` | search | 全文検索（フレーム + サマリー） |
+| `export_frames_csv` | export | フレームをCSVでエクスポート |
+| `export_summaries_csv` | export | サマリーをCSVでエクスポート |
+| `export_report` | export | 日次レポートをJSONでエクスポート |
+| `get_live_frame` | live | ライブフィードのJPEGスナップショット |
+| `get_settings` | settings | DB設定を取得 |
+| `put_settings` | settings | DB設定を更新 |
+| `get_memo` | memos | 指定日のメモを取得 |
+| `put_memo` | memos | 指定日のメモを保存 |
+| `get_context` | context | ユーザープロファイルを取得 |
+| `put_context` | context | ユーザープロファイルを更新 |
+| `get_devices` | devices | カメラ・音声デバイスの列挙 |
+| `get_status` | status | デーモン状態・データディレクトリ情報 |
+| `get_data_dir` | status | データディレクトリパスを取得 |
+| `get_chat` | chat | 指定日のチャットメッセージを取得 |
+| `ask_rag` | rag | RAGベースの質問応答 |
+| `get_data_stats` | data | データストレージ統計 |
+| `export_table` | data | データベーステーブルのエクスポート |
 
 ## データベーススキーマ
 

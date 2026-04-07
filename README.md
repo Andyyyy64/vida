@@ -28,6 +28,7 @@ cd web; npm install; cd ..
 
 # 2. Set your API key
 "GEMINI_API_KEY=your-key-here" | Out-File -Encoding utf8 .env
+# After first launch, you can also set this in the Settings panel inside the app.
 
 # 3. Launch the desktop app
 cd web; npx tauri dev
@@ -49,6 +50,7 @@ cd web && npm install && cd ..
 
 # 2. Set your API key
 echo "GEMINI_API_KEY=your-key-here" > .env
+# After first launch, you can also set this in the Settings panel inside the app.
 
 # 3. Launch the desktop app
 cd web && npx tauri dev
@@ -67,6 +69,7 @@ cd vida
 uv sync
 cd web && npm install && cd ..
 echo "GEMINI_API_KEY=your-key-here" > .env
+# After first launch, you can also set this in the Settings panel inside the app.
 
 # Start daemon + web UI
 ./start.sh
@@ -97,7 +100,7 @@ The desktop app opens automatically with the timeline. Alternatively, download a
 - [Setup](#setup) — Requirements, Configuration, Docker
 - [CLI Commands](#cli-commands)
 - [Configuration Reference](#configuration)
-- [Web API](#web-api)
+- [IPC Commands](#ipc-commands)
 - [Database Schema](#database-schema)
 - [Tech Stack](#tech-stack)
 
@@ -175,11 +178,11 @@ Collects conversations from external chat platforms to enrich the "externalized 
 
 ```
 daemon/ (Python)         tauri/ (Rust)             frontend (React)
-  ├─ Camera capture        ├─ REST API               ├─ Timeline view
-  ├─ Screen capture        ├─ SQLite read-only       ├─ Frame detail
-  ├─ Audio capture         ├─ Media serving          ├─ Summary panel
-  ├─ Window monitor        ├─ MJPEG proxy            ├─ Live feed
-  ├─ Presence detection    └─ Static file serving    ├─ Dashboard
+  ├─ Camera capture        ├─ IPC commands            ├─ Timeline view
+  ├─ Screen capture        ├─ rusqlite queries        ├─ Frame detail
+  ├─ Audio capture         ├─ Asset Protocol          ├─ Summary panel
+  ├─ Window monitor        ├─ Daemon lifecycle        ├─ Live feed
+  ├─ Presence detection    └─ System tray             ├─ Dashboard
   ├─ LLM analysis                                    ├─ Search
   ├─ Summary generation                              ├─ Activity heatmap
   ├─ Report generation                               └─ Mobile responsive
@@ -299,19 +302,7 @@ See **[getting-started.md](getting-started.md)** for full platform-specific inst
 
 ### Configuration
 
-All settings live in `life.toml` (created automatically on first launch, or create manually):
-
-```toml
-[llm]
-provider = "gemini"
-gemini_model = "gemini-2.5-flash"
-
-[capture]
-interval_sec = 30
-
-[presence]
-enabled = true
-```
+Settings are managed via the **Settings UI** inside the desktop app (stored in the `settings` table of `data/life.db`). On first launch, defaults are applied automatically. For CLI-only use, settings can also be configured via `life.toml` and `.env` as fallback.
 
 **Tip:** Create `data/context.md` with your name, occupation, and habits — the AI uses this for more accurate activity descriptions.
 
@@ -341,83 +332,82 @@ For camera/audio device passthrough, configure `docker-compose.override.yml`. Se
 | `life events [DATE]` | List detected events |
 | `life report [DATE]` | Generate daily diary report |
 | `life review [DATE] [--json]` | Generate review package |
+| `life consolidate-activities` | Merge similar activity categories via LLM |
 | `life notify-test` | Test webhook notification |
 
 ## Configuration
 
-All options in `life.toml`:
+Settings are managed via the **Settings UI** in the desktop app and stored in the `settings` table of `data/life.db`. For CLI-only use, `life.toml` and `.env` serve as fallback sources. The following are the available setting keys (DB key names shown):
 
-```toml
-data_dir = "data"
+| Key | Default | Description |
+|-----|---------|-------------|
+| `data_dir` | `"data"` | Data directory path |
+| `capture.device` | `0` | Camera device ID (/dev/videoN) |
+| `capture.interval_sec` | `30` | Capture interval (seconds) |
+| `capture.width` | `640` | Capture width |
+| `capture.height` | `480` | Capture height |
+| `capture.jpeg_quality` | `85` | JPEG quality |
+| `capture.audio_device` | `""` | Audio device (empty = auto-detect) |
+| `capture.audio_sample_rate` | `44100` | Audio sample rate |
+| `analysis.motion_threshold` | `0.02` | MOG2 foreground pixel ratio |
+| `analysis.brightness_dark` | `40.0` | Below = DARK scene |
+| `analysis.brightness_bright` | `180.0` | Above = BRIGHT scene |
+| `llm.provider` | `"gemini"` | "gemini" or "claude" |
+| `llm.claude_model` | `"haiku"` | Claude model name |
+| `llm.gemini_model` | `"gemini-3.1-flash-lite-preview"` | Gemini model name |
+| `presence.enabled` | `true` | Enable presence detection |
+| `presence.absent_threshold_ticks` | `3` | Ticks before absent state |
+| `presence.sleep_start_hour` | `23` | Sleep detection start hour |
+| `presence.sleep_end_hour` | `8` | Sleep detection end hour |
+| `notify.provider` | `"discord"` | "discord" or "line" |
+| `notify.webhook_url` | `""` | Webhook URL |
+| `notify.enabled` | `false` | Enable notifications |
+| `chat.enabled` | `false` | Master switch for chat integration |
+| `chat.discord.enabled` | `false` | Enable Discord adapter |
+| `chat.discord.user_token` | `""` | Discord user token |
+| `chat.discord.user_id` | `""` | Your Discord user ID |
+| `chat.discord.poll_interval` | `60` | Seconds between polls |
+| `chat.discord.backfill_months` | `3` | Months of history to backfill on first run (0 = skip) |
 
-[capture]
-device = 0              # camera device ID (/dev/videoN)
-interval_sec = 30       # capture interval (seconds)
-width = 640
-height = 480
-jpeg_quality = 85
-audio_device = ""       # ALSA device (empty = auto-detect)
-audio_sample_rate = 44100
+## IPC Commands
 
-[analysis]
-motion_threshold = 0.02    # MOG2 foreground pixel ratio
-brightness_dark = 40.0     # below = DARK scene
-brightness_bright = 180.0  # above = BRIGHT scene
+The frontend communicates with the Rust backend via Tauri `invoke()` commands, not HTTP endpoints. These are defined in `web/src-tauri/src/commands/`.
 
-[llm]
-provider = "gemini"              # "gemini" or "claude"
-claude_model = "haiku"
-gemini_model = "gemini-2.5-flash"
-
-[presence]
-enabled = true
-absent_threshold_ticks = 3       # ticks before absent state
-sleep_start_hour = 23
-sleep_end_hour = 8
-
-[notify]
-provider = "discord"             # "discord" or "line"
-webhook_url = ""
-enabled = false
-
-[chat]
-enabled = false                  # master switch for chat integration
-
-[chat.discord]
-enabled = false
-user_token = ""                  # Discord user token
-user_id = ""                     # Your Discord user ID
-poll_interval = 60               # seconds between polls
-backfill_months = 3              # fetch past N months on first run (0 = skip)
-```
-
-## Web API
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/frames?date=YYYY-MM-DD` | List frames for a date |
-| `GET /api/frames/latest` | Get latest frame |
-| `GET /api/frames/:id` | Get frame by ID |
-| `GET /api/summaries?date=...&scale=...` | List summaries |
-| `GET /api/events?date=...` | List events |
-| `GET /api/stats?date=...` | Daily statistics (counts, averages, hourly activity) |
-| `GET /api/stats/activities?date=...` | Activity breakdown with duration and hourly detail |
-| `GET /api/stats/apps?date=...` | App usage from window events (duration, switch count) |
-| `GET /api/stats/dates` | List dates with data |
-| `GET /api/stats/range?from=...&to=...` | Per-day stats with meta-category breakdown |
-| `GET /api/sessions?date=...` | Activity sessions (consecutive frame grouping) |
-| `GET /api/reports?date=...` | Get daily report |
-| `GET /api/reports` | List recent reports |
-| `GET /api/activities` | List activity categories with meta-categories |
-| `GET /api/activities/mappings` | Activity → meta-category mapping table |
-| `GET /api/search?q=...&from=...&to=...` | Full-text search (frames + summaries) |
-| `GET /api/export/frames?date=...&format=csv\|json` | Export frames as CSV or JSON |
-| `GET /api/export/summaries?from=...&to=...&format=csv\|json` | Export summaries |
-| `GET /api/export/report?date=...` | Export daily report as JSON |
-| `GET /api/live/stream` | MJPEG stream proxy |
-| `GET /api/live/frame` | Single JPEG snapshot |
-| `GET /health` | Health check |
-| `GET /media/{path}` | Serve image/audio files |
+| Command | Module | Description |
+|---------|--------|-------------|
+| `get_frames` | frames | List frames for a date |
+| `get_frame` | frames | Get frame by ID |
+| `get_latest_frame` | frames | Get latest frame |
+| `get_summaries` | summaries | List summaries by date and scale |
+| `get_events` | events | List events for a date |
+| `get_stats` | stats | Daily statistics (counts, averages, hourly activity) |
+| `get_activities` | stats | Activity breakdown with duration and hourly detail |
+| `get_apps` | stats | App usage from window events (duration, switch count) |
+| `get_dates` | stats | List dates with data |
+| `get_range_stats` | stats | Per-day stats with meta-category breakdown |
+| `get_sessions` | sessions | Activity sessions (consecutive frame grouping) |
+| `get_report` | reports | Get daily report |
+| `list_reports` | reports | List recent reports |
+| `list_activities` | activities | List activity categories with meta-categories |
+| `get_activity_mappings` | activities | Activity to meta-category mapping table |
+| `search_text` | search | Full-text search (frames + summaries) |
+| `export_frames_csv` | export | Export frames as CSV |
+| `export_summaries_csv` | export | Export summaries as CSV |
+| `export_report` | export | Export daily report as JSON |
+| `get_live_frame` | live | Single JPEG snapshot from live feed |
+| `get_settings` | settings | Get all settings from DB |
+| `put_settings` | settings | Update settings in DB |
+| `get_memo` | memos | Get memo for a date |
+| `put_memo` | memos | Save memo for a date |
+| `get_context` | context | Get user profile context |
+| `put_context` | context | Update user profile context |
+| `get_devices` | devices | Enumerate camera and audio devices |
+| `get_status` | status | Daemon status and data directory info |
+| `get_data_dir` | status | Get data directory path |
+| `get_chat` | chat | Get chat messages for a date |
+| `ask_rag` | rag | RAG-based question answering |
+| `get_data_stats` | data | Data storage statistics |
+| `export_table` | data | Export a database table |
 
 ## Database Schema
 
