@@ -46,5 +46,12 @@ export function useFrames(date: string) {
     return () => clearInterval(id);
   }, [date, fetchFrames, isDemo]);
 
-  return { frames, loading };
+  // Listen for WebSocket-triggered refreshes
+  useEffect(() => {
+    const handler = () => fetchFrames();
+    window.addEventListener('vida:refresh-frames', handler);
+    return () => window.removeEventListener('vida:refresh-frames', handler);
+  }, [fetchFrames]);
+
+  return { frames, loading, refresh: fetchFrames };
 }

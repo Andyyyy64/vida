@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Andyyyy64/vida/actions/workflows/ci.yml/badge.svg)](https://github.com/Andyyyy64/vida/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.3-green.svg)](https://github.com/Andyyyy64/vida/releases)
+[![Version](https://img.shields.io/badge/version-0.2.4-green.svg)](https://github.com/Andyyyy64/vida/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Open-blue)](https://vida-demo-phi.vercel.app)
 

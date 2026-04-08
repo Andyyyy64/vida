@@ -34,6 +34,7 @@ from daemon.live import LiveServer
 from daemon.llm import create_provider
 from daemon.notify import send_notification
 from daemon.rag_server import RagServer
+from daemon.ws_server import WebSocketServer, WSEvent
 from daemon.report import ReportGenerator
 from daemon.retention import cleanup_old_data
 from daemon.storage.database import Database
@@ -80,13 +81,17 @@ class Daemon:
         )
         self._presence_enabled = config.presence.enabled
 
-        # Create LLM provider from config
-        provider = create_provider(
-            config.llm.provider,
-            claude_model=config.llm.claude_model,
-            gemini_model=config.llm.gemini_model,
-        )
-        log.info("LLM provider: %s", config.llm.provider)
+        # Create LLM provider from config (None in external mode)
+        if config.llm.provider == "external":
+            provider = None
+            log.info("LLM provider: external (Claude Code via WebSocket)")
+        else:
+            provider = create_provider(
+                config.llm.provider,
+                claude_model=config.llm.claude_model,
+                gemini_model=config.llm.gemini_model,
+            )
+            log.info("LLM provider: %s", config.llm.provider)
 
         # Multimodal embedder
         self._embedding_enabled = config.embedding.enabled
@@ -95,17 +100,30 @@ class Daemon:
             log.info("Embedding enabled (model=%s, dims=%d)", config.embedding.model, config.embedding.dimensions)
 
         self._activity_mgr = ActivityManager(self._db)
-        self._transcriber = Transcriber(
-            provider,
-            context_path=config.data_dir / "context.md",
-        )
-        self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db, self._activity_mgr)
-        self._summary_gen = SummaryGenerator(provider, self._db, config.data_dir)
-        self._report_gen = ReportGenerator(provider, self._db, config.data_dir, self._activity_mgr)
-        self._knowledge_gen = KnowledgeGenerator(provider, self._db, config.data_dir)
+        if provider:
+            self._transcriber = Transcriber(
+                provider,
+                context_path=config.data_dir / "context.md",
+            )
+            self._frame_analyzer = FrameAnalyzer(provider, config.data_dir, self._db, self._activity_mgr)
+            self._summary_gen = SummaryGenerator(provider, self._db, config.data_dir)
+            self._report_gen = ReportGenerator(provider, self._db, config.data_dir, self._activity_mgr)
+            self._knowledge_gen = KnowledgeGenerator(provider, self._db, config.data_dir)
+        else:
+            self._transcriber = None
+            self._frame_analyzer = None
+            self._summary_gen = None
+            self._report_gen = None
+            self._knowledge_gen = None
         self._knowledge_interval_days = config.knowledge_interval_days
         self._chat_mgr = ChatManager(config.db_path, config.chat)
-        self._rag_server = RagServer(config, port=3003)
+        # RAG server requires an LLM provider — skip in external mode
+        if config.llm.provider != "external":
+            self._rag_server = RagServer(config, port=3003)
+        else:
+            self._rag_server = None
+        self._ws = WebSocketServer(port=3004)
+        self._ws.on_message = self._handle_ws_message
 
         # Track last summary time per scale
         # Initialize to now so we wait the full interval before first generation
@@ -135,7 +153,9 @@ class Daemon:
 
         self._running = True
         self._live.start()
-        self._rag_server.start()
+        if self._rag_server:
+            self._rag_server.start()
+        self._ws.start()
         self._window.start()
         self._chat_mgr.start()
         if self._has_camera:
@@ -172,7 +192,9 @@ class Daemon:
             self._running = False
             self._chat_mgr.stop()
             self._window.stop()
-            self._rag_server.stop()
+            self._ws.stop()
+            if self._rag_server:
+                self._rag_server.stop()
             self._live.stop()
             self._camera.close()
             self._db.close()
@@ -229,7 +251,7 @@ class Daemon:
         audio_path = self._pending_audio or ""
         self._pending_audio = None
         transcription = ""
-        if audio_path:
+        if audio_path and self._transcriber:
             abs_audio = self._config.data_dir / audio_path
             transcription = self._transcriber.transcribe(Path(abs_audio))
             if transcription:
@@ -363,6 +385,11 @@ class Daemon:
                             description=f"{prev_state.value} → {new_state.value}",
                         )
                     )
+                    self._ws.broadcast(WSEvent("presence_change", {
+                        "from": prev_state.value,
+                        "to": new_state.value,
+                        "timestamp": now.isoformat(),
+                    }))
 
         # Collect change-detected extra captures from previous interval
         with self._capture_lock:
@@ -391,6 +418,17 @@ class Daemon:
         )
         frame_id = self._db.insert_frame(frame)
         frame.id = frame_id
+
+        # Broadcast new frame via WebSocket
+        self._ws.broadcast(WSEvent("new_frame", {
+            "frame_id": frame_id,
+            "timestamp": now.isoformat(),
+            "path": rel_path,
+            "screen_path": screen_path,
+            "audio_path": audio_path,
+            "has_transcription": bool(transcription),
+            "foreground_window": foreground_window,
+        }))
 
         # Scene change event (requires camera)
         if raw_frame is not None:
@@ -437,41 +475,65 @@ class Daemon:
         )
 
         # LLM frame analysis (with change-detected extra captures + presence/pose hints)
-        all_extra_screens = extra_screens or None
-        all_extra_cams = extra_cams or None
-        description, activity = self._frame_analyzer.analyze(
-            frame,
-            all_extra_screens,
-            all_extra_cams,
-            has_face=has_face,
-            pose_data=pose_data,
-            idle_seconds=idle_seconds,
-        )
+        if self._config.llm.provider == "external":
+            # External mode: skip LLM, broadcast analysis request via WebSocket
+            image_paths = [p for p in [rel_path, screen_path, *extra_screens, *extra_cams] if p]
+            self._ws.broadcast(WSEvent("analyze_request", {
+                "frame_id": frame_id,
+                "timestamp": now.isoformat(),
+                "image_paths": image_paths,
+                "data_dir": str(self._config.data_dir.resolve()),
+                "transcription": transcription,
+                "foreground_window": foreground_window,
+                "idle_seconds": idle_seconds,
+                "has_face": has_face,
+                "pose_data": pose_data,
+            }))
+            description, activity = "", ""
+        else:
+            all_extra_screens = extra_screens or None
+            all_extra_cams = extra_cams or None
+            description, activity = self._frame_analyzer.analyze(
+                frame,
+                all_extra_screens,
+                all_extra_cams,
+                has_face=has_face,
+                pose_data=pose_data,
+                idle_seconds=idle_seconds,
+            )
         if description or activity:
             self._db.update_frame_analysis(frame_id, description, activity)
             log.info("Analysis: [%s] %s", activity, description[:80])
+            self._ws.broadcast(WSEvent("frame_analyzed", {
+                "frame_id": frame_id,
+                "activity": activity,
+                "description": description[:200],
+            }))
 
         # Multimodal embedding (after LLM analysis so description/activity are available)
-        if self._embedding_enabled:
+        # Skip in external mode — embedding runs when Claude Code sends analysis via WS
+        if self._embedding_enabled and self._config.llm.provider != "external":
             # Update frame with analysis results for embedding
             frame.claude_description = description
             frame.activity = activity
             self._embed_frame(frame)
 
-        # Multi-scale summaries
-        self._check_summaries(now)
+        # Multi-scale summaries (skip in external mode — Claude Code generates them)
+        if self._config.llm.provider != "external":
+            self._check_summaries(now)
 
         # Embed pending chat messages and summaries (background threads)
         if self._embedding_enabled:
             self._embed_pending_chat(now)
             self._embed_pending_summaries(now)
 
-        # Knowledge profile generation
-        self._check_knowledge(now)
+        # Knowledge profile generation (skip in external mode)
+        if self._knowledge_gen:
+            self._check_knowledge(now)
 
-        # Auto-generate daily report when day changes
+        # Auto-generate daily report when day changes (skip in external mode)
         today_str = now.strftime("%Y-%m-%d")
-        if today_str != self._last_report_date:
+        if self._report_gen and today_str != self._last_report_date:
             yesterday = (now - timedelta(days=1)).date()
             existing = self._db.get_report(yesterday)
             if not existing:
@@ -600,6 +662,13 @@ class Daemon:
             if summary:
                 self._last_summary[scale] = now
                 log.info("Summary [%s]: %s", scale, summary.content[:80])
+                self._ws.broadcast(WSEvent("new_summary", {
+                    "summary_id": summary.id,
+                    "scale": scale,
+                    "timestamp": now.isoformat(),
+                    "content": summary.content[:200],
+                    "frame_count": summary.frame_count,
+                }))
 
     def _check_knowledge(self, now: datetime):
         """Generate knowledge profile if interval has elapsed."""
@@ -639,6 +708,50 @@ class Daemon:
     def _cleanup_pid(self):
         if self._config.pid_file.exists():
             self._config.pid_file.unlink()
+
+    def _handle_ws_message(self, data: dict, ws) -> None:
+        """Handle incoming WebSocket messages from clients (Claude Code, UI)."""
+        msg_type = data.get("type", "")
+
+        if msg_type == "frame_analysis":
+            # Claude Code sending analysis result
+            frame_id = data.get("frame_id")
+            description = data.get("description", "")
+            activity = data.get("activity", "")
+            meta_category = data.get("meta_category", "other")
+            if frame_id and (description or activity) and self._db.get_frame_by_id(frame_id):
+                if activity:
+                    activity, _ = self._activity_mgr.normalize_and_register(activity, meta_category)
+                self._db.update_frame_analysis(frame_id, description, activity)
+                log.info("External analysis for frame %d: [%s] %s", frame_id, activity, description[:80])
+                self._ws.broadcast(WSEvent("frame_analyzed", {
+                    "frame_id": frame_id,
+                    "activity": activity,
+                    "description": description[:200],
+                    "source": "external",
+                }))
+
+        elif msg_type == "create_summary":
+            # Claude Code sending a summary
+            scale = data.get("scale", "")
+            content = data.get("content", "")
+            frame_count = data.get("frame_count", 0)
+            if scale and content and scale in SCALES:
+                from daemon.storage.models import Summary
+                summary = Summary(
+                    timestamp=datetime.now(),
+                    scale=scale,
+                    content=content,
+                    frame_count=frame_count,
+                )
+                summary.id = self._db.insert_summary(summary)
+                log.info("External summary [%s]: %s", scale, content[:80])
+                self._ws.broadcast(WSEvent("new_summary", {
+                    "summary_id": summary.id,
+                    "scale": scale,
+                    "content": content[:200],
+                    "source": "external",
+                }))
 
     def _handle_signal(self, signum, _frame):
         log.info("Received signal %d, stopping...", signum)

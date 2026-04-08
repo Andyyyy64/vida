@@ -8,6 +8,8 @@ import { Timeline } from './components/Timeline';
 import { DetailPanel } from './components/DetailPanel';
 import { ActivityHeatmap } from './components/ActivityHeatmap';
 import { RagChat } from './components/RagChat';
+import { useWebSocket } from './hooks/useWebSocket';
+import type { WSEvent } from './hooks/useWebSocket';
 
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
@@ -74,6 +76,20 @@ export default function App() {
   const { summaries } = useSummaries(date);
   const { events } = useEvents(date);
   const memo = useDailyMemo(date);
+
+  // WebSocket connection to daemon for real-time updates
+  const handleWSEvent = useCallback((event: WSEvent) => {
+    if (event.type === 'frame_analyzed' || event.type === 'new_frame') {
+      window.dispatchEvent(new CustomEvent('vida:refresh-frames'));
+    }
+    if (event.type === 'new_summary') {
+      window.dispatchEvent(new CustomEvent('vida:refresh-summaries'));
+    }
+  }, []);
+
+  const { connected: wsConnected } = useWebSocket(
+    isDemo ? { autoReconnect: false } : { onEvent: handleWSEvent },
+  );
 
   const fetchStats = useCallback(() => {
     api.stats.get(date).then(setStats).catch(() => {
@@ -330,6 +346,13 @@ export default function App() {
       >
         ⚙
       </button>
+      {!isDemo && (
+        <div
+          className="ws-indicator"
+          title={wsConnected ? 'WebSocket connected' : 'WebSocket disconnected'}
+          data-connected={wsConnected}
+        />
+      )}
       {isDemo && (
         <div className="demo-footer-banner">
           {t('demo.simulatedBanner')}

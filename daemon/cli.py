@@ -244,6 +244,10 @@ def look(ctx):
         console.print(f"[green]Screen:[/green]  {config.data_dir / screen_path}")
     console.print("[dim]Analyzing...[/dim]")
 
+    if config.llm.provider == "external":
+        console.print("[yellow]'look' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]")
+        return
+
     provider = create_provider(
         config.llm.provider,
         claude_model=config.llm.claude_model,
@@ -437,6 +441,10 @@ def report(ctx, target_date: str | None):
         console.print("[dim]No data yet[/dim]")
         return
 
+    if config.llm.provider == "external":
+        console.print("[yellow]'report' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]")
+        return
+
     provider = create_provider(
         config.llm.provider,
         claude_model=config.llm.claude_model,
@@ -534,6 +542,11 @@ def knowledge(ctx, regen: bool):
     db = Database(config.db_path)
 
     if regen:
+        if config.llm.provider == "external":
+            console.print("[yellow]'knowledge --regen' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]")
+            db.close()
+            return
+
         from daemon.knowledge import KnowledgeGenerator
         from daemon.llm import create_provider
 
@@ -858,3 +871,462 @@ def _parse_date(s: str) -> date:
         return date.fromisoformat(s)
     except ValueError as e:
         raise click.BadParameter(f"Invalid date: {s} (expected YYYY-MM-DD)") from e
+
+
+# ─── JSON data helpers ───────────────────────────────────────────────────────
+
+def _frame_to_dict(f) -> dict:
+    """Convert a Frame dataclass to a JSON-serializable dict."""
+    return {
+        "id": f.id,
+        "timestamp": f.timestamp.isoformat(),
+        "path": f.path,
+        "screen_path": f.screen_path,
+        "audio_path": f.audio_path,
+        "transcription": f.transcription,
+        "brightness": f.brightness,
+        "motion_score": f.motion_score,
+        "scene_type": f.scene_type.value,
+        "description": f.claude_description,
+        "activity": f.activity,
+        "foreground_window": f.foreground_window,
+        "idle_seconds": f.idle_seconds,
+    }
+
+
+def _summary_to_dict(s) -> dict:
+    return {
+        "id": s.id,
+        "timestamp": s.timestamp.isoformat(),
+        "scale": s.scale,
+        "content": s.content,
+        "frame_count": s.frame_count,
+    }
+
+
+# ─── Phase 1-3: Data read commands ──────────────────────────────────────────
+
+@cli.command("frames-list")
+@click.argument("target_date", required=False)
+@click.option("--limit", default=100, help="Max frames to return")
+@click.option("--json", "as_json", is_flag=True, default=True, help="Output JSON (default)")
+@click.pass_context
+def frames_list(ctx, target_date: str | None, limit: int, as_json: bool):
+    """List frames for a date (JSON output for Claude Code)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    d = _parse_date(target_date) if target_date else date.today()
+
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"frames": [], "count": 0}))
+        return
+
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    frames = db.get_frames_for_date(d)
+    db.close()
+
+    if limit and len(frames) > limit:
+        frames = frames[-limit:]
+
+    click.echo(json_mod.dumps({
+        "date": d.isoformat(),
+        "count": len(frames),
+        "frames": [_frame_to_dict(f) for f in frames],
+    }, ensure_ascii=False))
+
+
+@cli.command("frames-get")
+@click.argument("frame_id", type=int)
+@click.option("--include-image", is_flag=True, help="Include base64 encoded image")
+@click.pass_context
+def frames_get(ctx, frame_id: int, include_image: bool):
+    """Get a single frame by ID (JSON output)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"error": "no database"}))
+        return
+
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    frame = db.get_frame_by_id(frame_id)
+    db.close()
+
+    if not frame:
+        click.echo(json_mod.dumps({"error": f"frame {frame_id} not found"}))
+        return
+
+    result = _frame_to_dict(frame)
+    result["data_dir"] = str(config.data_dir.resolve())
+
+    if include_image:
+        import base64
+
+        for key in ("path", "screen_path"):
+            fpath = config.data_dir / result[key] if result[key] else None
+            if fpath and fpath.exists():
+                result[f"{key}_base64"] = base64.b64encode(fpath.read_bytes()).decode()
+
+    click.echo(json_mod.dumps(result, ensure_ascii=False))
+
+
+@cli.command("frames-pending")
+@click.option("--limit", default=50, help="Max pending frames to return")
+@click.pass_context
+def frames_pending(ctx, limit: int):
+    """List frames pending analysis (JSON output)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"frames": [], "count": 0}))
+        return
+
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    frames = db.get_pending_frames(limit=limit)
+    db.close()
+
+    click.echo(json_mod.dumps({
+        "count": len(frames),
+        "data_dir": str(config.data_dir.resolve()),
+        "frames": [_frame_to_dict(f) for f in frames],
+    }, ensure_ascii=False))
+
+
+@cli.command("summary-list")
+@click.argument("target_date", required=False)
+@click.option("--scale", type=click.Choice(["10m", "30m", "1h", "6h", "12h", "24h"]), default=None)
+@click.pass_context
+def summary_list(ctx, target_date: str | None, scale: str | None):
+    """List summaries for a date (JSON output)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    d = _parse_date(target_date) if target_date else date.today()
+
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"summaries": [], "count": 0}))
+        return
+
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    sums = db.get_summaries_for_date(d, scale)
+    db.close()
+
+    click.echo(json_mod.dumps({
+        "date": d.isoformat(),
+        "scale_filter": scale,
+        "count": len(sums),
+        "summaries": [_summary_to_dict(s) for s in sums],
+    }, ensure_ascii=False))
+
+
+@cli.command("activity-stats")
+@click.option("--days", default=7, help="Number of days to include")
+@click.pass_context
+def activity_stats_cmd(ctx, days: int):
+    """Show activity statistics for a date range (JSON output)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"stats": [], "days": days}))
+        return
+
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    stats = db.get_activity_stats_range(days=days)
+    mappings = db.get_all_activity_mappings()
+    db.close()
+
+    click.echo(json_mod.dumps({
+        "days": days,
+        "stats": stats,
+        "mappings": mappings,
+    }, ensure_ascii=False))
+
+
+@cli.command("search")
+@click.argument("query")
+@click.option("--limit", default=20)
+@click.option("--type", "search_type", type=click.Choice(["frames", "summaries", "all"]), default="all")
+@click.pass_context
+def search_cmd(ctx, query: str, limit: int, search_type: str):
+    """Full-text search across frames and summaries (JSON output)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"results": []}))
+        return
+
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    results: dict = {"query": query}
+
+    if search_type in ("frames", "all"):
+        frames = db.search_frames(query, limit=limit)
+        results["frames"] = [_frame_to_dict(f) for f in frames]
+
+    if search_type in ("summaries", "all"):
+        sums = db.search_summaries(query, limit=limit)
+        results["summaries"] = [_summary_to_dict(s) for s in sums]
+
+    db.close()
+    click.echo(json_mod.dumps(results, ensure_ascii=False))
+
+
+@cli.command("status-json")
+@click.pass_context
+def status_json(ctx):
+    """Show daemon status as JSON (for Claude Code)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+
+    running = False
+    pid = None
+    if config.pid_file.exists():
+        pid_str = config.pid_file.read_text().strip()
+        try:
+            pid = int(pid_str)
+            os.kill(pid, 0)
+            running = True
+        except (ValueError, OSError):
+            pass
+
+    result: dict = {
+        "running": running,
+        "pid": pid,
+        "data_dir": str(config.data_dir.resolve()),
+        "db_path": str(config.db_path.resolve()),
+    }
+
+    if config.db_path.exists():
+        from daemon.storage.database import Database
+
+        db = Database(config.db_path)
+        result["frames_today"] = db.get_frame_count_for_date(date.today())
+        latest = db.get_latest_frame()
+        if latest:
+            result["latest_frame"] = _frame_to_dict(latest)
+        sums = db.get_summaries_for_date(date.today())
+        result["summaries_today"] = len(sums)
+        result["memo_today"] = db.get_memo(date.today())
+        db.close()
+
+    click.echo(json_mod.dumps(result, ensure_ascii=False))
+
+
+# ─── Phase 1-4: Data write commands ─────────────────────────────────────────
+
+@cli.command("frames-update")
+@click.argument("frame_id", type=int)
+@click.option("--analysis", "description", default=None, help="Analysis description")
+@click.option("--activity", default=None, help="Activity category")
+@click.option("--meta-category", default="other", help="Meta category")
+@click.pass_context
+def frames_update(ctx, frame_id: int, description: str | None, activity: str | None, meta_category: str):
+    """Update frame analysis (used by Claude Code to send results)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"error": "no database"}))
+        return
+
+    from daemon.activity import ActivityManager
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    frame = db.get_frame_by_id(frame_id)
+    if not frame:
+        click.echo(json_mod.dumps({"error": f"frame {frame_id} not found"}))
+        db.close()
+        return
+
+    desc = description or frame.claude_description
+    act = activity or frame.activity
+
+    if activity:
+        activity_mgr = ActivityManager(db)
+        act, _ = activity_mgr.normalize_and_register(act, meta_category)
+
+    db.update_frame_analysis(frame_id, desc, act)
+    db.close()
+
+    click.echo(json_mod.dumps({
+        "ok": True,
+        "frame_id": frame_id,
+        "description": desc[:200],
+        "activity": act,
+    }, ensure_ascii=False))
+
+
+@cli.command("summary-create")
+@click.option("--scale", required=True, type=click.Choice(["10m", "30m", "1h", "6h", "12h", "24h"]))
+@click.option("--content", required=True, help="Summary content")
+@click.option("--frame-count", default=0, help="Number of frames covered")
+@click.pass_context
+def summary_create(ctx, scale: str, content: str, frame_count: int):
+    """Create a new summary (used by Claude Code)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"error": "no database"}))
+        return
+
+    from daemon.storage.database import Database
+    from daemon.storage.models import Summary
+
+    db = Database(config.db_path)
+    summary = Summary(
+        timestamp=datetime.now(),
+        scale=scale,
+        content=content,
+        frame_count=frame_count,
+    )
+    summary.id = db.insert_summary(summary)
+    db.close()
+
+    click.echo(json_mod.dumps({
+        "ok": True,
+        "summary_id": summary.id,
+        "scale": scale,
+        "content": content[:200],
+    }, ensure_ascii=False))
+
+
+@cli.command("memo-set")
+@click.option("--date", "target_date", default=None, help="Date (YYYY-MM-DD, default: today)")
+@click.option("--content", required=True, help="Memo content")
+@click.pass_context
+def memo_set(ctx, target_date: str | None, content: str):
+    """Set daily memo (used by Claude Code)."""
+    import json as json_mod
+
+    config: Config = ctx.obj["config"]
+    d = _parse_date(target_date) if target_date else date.today()
+
+    if not config.db_path.exists():
+        click.echo(json_mod.dumps({"error": "no database"}))
+        return
+
+    from daemon.storage.database import Database
+
+    db = Database(config.db_path)
+    db.upsert_memo(d, content)
+    db.close()
+
+    click.echo(json_mod.dumps({
+        "ok": True,
+        "date": d.isoformat(),
+        "content": content[:200],
+    }, ensure_ascii=False))
+
+
+# ─── Phase 2-2: connect --stream ─────────────────────────────────────────────
+
+@cli.command("connect")
+@click.option("--port", default=3004, help="WebSocket server port")
+@click.option("--stream", is_flag=True, help="Stream events to stdout as ndjson")
+@click.pass_context
+def connect(ctx, port: int, stream: bool):
+    """Connect to daemon WebSocket. With --stream, output events as ndjson."""
+    import asyncio
+    import json as json_mod
+    import sys
+
+    async def _connect():
+        try:
+            import websockets
+        except ImportError:
+            click.echo(json_mod.dumps({"error": "websockets not installed. pip install websockets"}))
+            return
+
+        uri = f"ws://127.0.0.1:{port}"
+        try:
+            async with websockets.connect(uri) as ws:
+                # Read welcome message
+                welcome = await ws.recv()
+                if not stream:
+                    # Just verify connectivity and exit
+                    click.echo(welcome)
+                    return
+
+                # Stream mode: output all events as ndjson
+                sys.stdout.write(welcome + "\n")
+                sys.stdout.flush()
+                async for msg in ws:
+                    sys.stdout.write(msg + "\n")
+                    sys.stdout.flush()
+        except ConnectionRefusedError:
+            click.echo(json_mod.dumps({
+                "error": f"Cannot connect to daemon WebSocket at {uri}. Is the daemon running?",
+            }))
+        except KeyboardInterrupt:
+            pass
+
+    asyncio.run(_connect())
+
+
+# ─── Phase 2-3: watch ────────────────────────────────────────────────────────
+
+@cli.command("watch")
+@click.option("--port", default=3004, help="WebSocket server port")
+@click.option("--type", "event_type", default="analyze_request", help="Event type to wait for")
+@click.option("--timeout", default=120, help="Timeout in seconds (0 = infinite)")
+@click.pass_context
+def watch(ctx, port: int, event_type: str, timeout: int):
+    """Wait for the next event of a given type and output it (single-shot).
+
+    Perfect for Claude Code loop:
+        while true; do vida watch --type analyze_request; done
+    """
+    import asyncio
+    import contextlib
+    import json as json_mod
+    import sys
+
+    async def _wait_for_event():
+        try:
+            import websockets
+        except ImportError:
+            click.echo(json_mod.dumps({"error": "websockets not installed"}))
+            return
+
+        uri = f"ws://127.0.0.1:{port}"
+        try:
+            async with websockets.connect(uri) as ws:
+                cm = asyncio.timeout(timeout) if timeout > 0 else contextlib.nullcontext()
+                try:
+                    async with cm:
+                        async for msg in ws:
+                            try:
+                                data = json_mod.loads(msg)
+                            except json_mod.JSONDecodeError:
+                                continue
+
+                            if data.get("type") == event_type:
+                                sys.stdout.write(msg + "\n")
+                                sys.stdout.flush()
+                                return
+                except TimeoutError:
+                    click.echo(json_mod.dumps({"error": "timeout", "waited_seconds": timeout}))
+        except ConnectionRefusedError:
+            click.echo(json_mod.dumps({
+                "error": f"Cannot connect to daemon WebSocket at {uri}. Is the daemon running?",
+            }))
+
+    asyncio.run(_wait_for_event())

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-04-09
+
+### Added
+
+- WebSocket server (port 3004) for bidirectional real-time communication
+- Claude Code integration: external analysis mode (`llm.provider = "external"`)
+- CLI data commands: `frames-list`, `frames-get`, `frames-pending`, `summary-list`, `activity-stats`, `search`, `status-json`, `frames-update`, `summary-create`, `memo-set`
+- CLI streaming commands: `connect --stream`, `watch --type <event>`
+- Claude Code skills (`.claude/skills/vida-*.md`) for automatic analysis loop
+- React WebSocket hook with auto-reconnect and real-time UI updates
+- WebSocket connection indicator in UI
+- `vida` CLI alias alongside existing `life` alias
+
 ## [0.2.3] - 2026-04-08
 
 ### Fixed

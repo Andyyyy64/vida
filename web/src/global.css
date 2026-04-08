@@ -1506,6 +1506,24 @@ pre {
   background: var(--bg-surface);
 }
 
+.ws-indicator {
+  position: fixed;
+  bottom: 54px;
+  left: 44px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  z-index: 90;
+  transition: background 0.3s;
+  pointer-events: none;
+}
+
+.ws-indicator[data-connected="true"] {
+  background: #4ade80;
+  box-shadow: 0 0 4px #4ade80;
+}
+
 /* ── Data modal ── */
 
 .data-overlay {

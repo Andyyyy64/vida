@@ -45,5 +45,12 @@ export function useSummaries(date: string, scale?: string) {
     return () => clearInterval(id);
   }, [date, fetchSummaries, isDemo]);
 
-  return { summaries, loading };
+  // Listen for WebSocket-triggered refreshes
+  useEffect(() => {
+    const handler = () => fetchSummaries();
+    window.addEventListener('vida:refresh-summaries', handler);
+    return () => window.removeEventListener('vida:refresh-summaries', handler);
+  }, [fetchSummaries]);
+
+  return { summaries, loading, refresh: fetchSummaries };
 }

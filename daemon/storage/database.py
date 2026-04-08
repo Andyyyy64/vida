@@ -467,6 +467,67 @@ class Database:
             ).fetchall()
         return [r[0] for r in rows]
 
+    # --- Full-text search ---
+
+    def search_frames(self, query: str, limit: int = 20) -> list[Frame]:
+        """Full-text search across frame descriptions, transcriptions, activities."""
+        # Wrap in double quotes to treat as phrase and avoid FTS5 syntax errors
+        safe_query = '"' + query.replace('"', '""') + '"'
+        try:
+            rows = self._conn.execute(
+                "SELECT f.* FROM frames f "
+                "JOIN frames_fts fts ON f.id = fts.rowid "
+                "WHERE frames_fts MATCH ? "
+                "ORDER BY f.timestamp DESC LIMIT ?",
+                (safe_query, limit),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            log.warning("FTS5 search failed for query: %s", query)
+            return []
+        return [self._row_to_frame(r) for r in rows]
+
+    def search_summaries(self, query: str, limit: int = 20) -> list[Summary]:
+        """Full-text search across summaries."""
+        safe_query = '"' + query.replace('"', '""') + '"'
+        try:
+            rows = self._conn.execute(
+                "SELECT s.* FROM summaries s "
+                "JOIN summaries_fts fts ON s.id = fts.rowid "
+                "WHERE summaries_fts MATCH ? "
+                "ORDER BY s.timestamp DESC LIMIT ?",
+                (safe_query, limit),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            log.warning("FTS5 search failed for query: %s", query)
+            return []
+        return [self._row_to_summary(r) for r in rows]
+
+    def get_pending_frames(self, limit: int = 50) -> list[Frame]:
+        """Get frames that haven't been analyzed yet."""
+        rows = self._conn.execute(
+            "SELECT * FROM frames WHERE claude_description = '' OR claude_description IS NULL "
+            "ORDER BY timestamp LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [self._row_to_frame(r) for r in rows]
+
+    def get_frame_by_id(self, frame_id: int) -> Frame | None:
+        """Get a single frame by ID."""
+        row = self._conn.execute("SELECT * FROM frames WHERE id = ?", (frame_id,)).fetchone()
+        return self._row_to_frame(row) if row else None
+
+    def get_activity_stats_range(self, days: int = 7) -> list[dict]:
+        """Get activity statistics for a date range."""
+        since = (datetime.now() - timedelta(days=days)).isoformat()
+        rows = self._conn.execute(
+            "SELECT activity, COUNT(*) as frame_count, "
+            "MIN(timestamp) as first_seen, MAX(timestamp) as last_seen "
+            "FROM frames WHERE timestamp >= ? AND activity != '' "
+            "GROUP BY activity ORDER BY frame_count DESC",
+            (since,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     # --- Activity mappings ---
 
     def get_all_activity_mappings(self) -> list[dict]:

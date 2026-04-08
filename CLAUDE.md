@@ -30,7 +30,8 @@ daemon (Python)          tauri (Rust)              frontend (React)
   ├─ Chat integration
   ├─ SQLite write
   ├─ sqlite-vec vector store
-  └─ MJPEG live server (port 3002)
+  ├─ MJPEG live server (port 3002)
+  └─ WebSocket server (port 3004)
 ```
 
 - **Tauri v2** desktop app — Rust core + OS WebView (no Chromium bundling)
@@ -40,7 +41,7 @@ daemon (Python)          tauri (Rust)              frontend (React)
 - Window monitor runs a persistent PowerShell process with its own SQLite connection
 - Shared `data/` directory: frames/, screens/, audio/, life.db
 - Settings stored in SQLite `settings` table (not files)
-- LLM provider: Gemini (configured in DB settings)
+- LLM provider: Gemini, Claude, or "external" (Claude Code via WebSocket) — configured in DB settings
 - Multimodal embedding via Gemini Embedding 2 (camera, screen, audio, text → unified vector space)
 - sqlite-vec for vector storage and KNN cosine similarity search
 
@@ -54,7 +55,8 @@ daemon (Python)          tauri (Rust)              frontend (React)
 - `daemon/activity.py` — ActivityManager: DB-backed activity normalization + meta-category mapping
 - `daemon/analyzer.py` — Frame analysis and summary generation
 - `daemon/report.py` — Daily report generation
-- `daemon/llm/` — LLM provider abstraction (base, gemini)
+- `daemon/ws_server.py` — WebSocket server for Claude Code / UI bidirectional communication
+- `daemon/llm/` — LLM provider abstraction (base, gemini, claude)
 - `daemon/capture/` — Camera, screen (PowerShell/WSL2), audio (ALSA/sounddevice), window (Win32 P/Invoke)
 - `daemon/analysis/` — Motion, scene, change detection, presence, transcription
 - `daemon/storage/database.py` — SQLite schema, migrations, queries, sqlite-vec vector store
@@ -116,6 +118,34 @@ tick (30s) → LLM analysis → embed_frame (background thread)
 ```
 
 **Search:** `embed_text(query)` with `task_type=RETRIEVAL_QUERY` → `search_similar()` → cross-type KNN results
+
+## Claude Code Integration
+
+The daemon supports an "external" LLM provider mode where Claude Code handles all analysis via WebSocket + CLI.
+
+**Architecture:**
+```
+Claude Code (terminal) ←── CLI commands ──→ daemon (Python)
+         ↑                                       │
+         └────── WebSocket (port 3004) ──────────┘
+                                                  │
+Tauri UI ←── WebSocket (port 3004) ──────────────┘
+```
+
+**External mode (`llm.provider = "external"`):**
+- Daemon captures frames but skips LLM analysis
+- Broadcasts `analyze_request` events via WebSocket
+- Claude Code receives events, reads images, analyzes, sends results back via CLI
+- Summaries, reports, and knowledge generation also delegated to Claude Code
+
+**CLI data commands (JSON output):**
+- `vida frames-list [DATE]` / `vida frames-get <ID>` / `vida frames-pending`
+- `vida summary-list [DATE]` / `vida activity-stats` / `vida search <QUERY>`
+- `vida frames-update <ID>` / `vida summary-create` / `vida memo-set`
+- `vida connect --stream` / `vida watch --type <EVENT>`
+- `vida status-json`
+
+**Skills:** `.claude/skills/vida-*.md` teach Claude Code the analysis protocol.
 
 ## Conventions
 
