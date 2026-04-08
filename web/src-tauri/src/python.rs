@@ -2,13 +2,13 @@ use std::path::PathBuf;
 use std::process::Command;
 
 /// Find the Python binary by checking (in order):
-/// 1. `HOMELIFE_PYTHON` env var
+/// 1. `VIDA_PYTHON` env var
 /// 2. `.venv` in the given `repo_root`
 /// 3. `python3` on PATH
 /// 4. `python` on PATH
 pub fn find_python(repo_root: &PathBuf) -> Result<PathBuf, String> {
     // 1. Explicit override
-    if let Ok(p) = std::env::var("HOMELIFE_PYTHON") {
+    if let Ok(p) = std::env::var("VIDA_PYTHON") {
         let path = PathBuf::from(&p);
         if path.exists() {
             return Ok(path);

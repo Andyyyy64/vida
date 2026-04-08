@@ -1,10 +1,10 @@
 [package]
-name = "homelife-ai"
+name = "vida"
 version = "0.2.1"
 edition = "2021"
 
 [lib]
-name = "homelife_ai_lib"
+name = "vida_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

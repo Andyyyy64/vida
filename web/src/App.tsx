@@ -38,7 +38,7 @@ function useIsMobile() {
 }
 
 function getInitialTheme(): 'light' | 'dark' {
-  const stored = localStorage.getItem('homelife_theme');
+  const stored = localStorage.getItem('vida_theme');
   if (stored === 'light' || stored === 'dark') return stored;
   if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light';
   return 'dark';
@@ -62,7 +62,7 @@ export default function App() {
   const [showChat, setShowChat] = useState(false);
   const [showData, setShowData] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem('homelife_onboarded') !== '1');
+  const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem('vida_onboarded') !== '1');
   const [highlightRange, setHighlightRange] = useState<SummaryTimeRange | null>(null);
   const [mobilePanel, setMobilePanel] = useState<'timeline' | 'left' | 'detail'>('timeline');
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -84,7 +84,7 @@ export default function App() {
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('homelife_theme', theme);
+    localStorage.setItem('vida_theme', theme);
   }, [theme]);
 
   const toggleTheme = useCallback(() => {

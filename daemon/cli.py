@@ -32,7 +32,7 @@ def _setup_logging(verbose: bool):
 @click.option("-v", "--verbose", is_flag=True)
 @click.pass_context
 def cli(ctx, config_path: str | None, verbose: bool):
-    """homelife.ai - Personal Life Observer (powered by homelife.ai)"""
+    """vida - Personal Life Observer (powered by vida)"""
     _setup_logging(verbose)
     ctx.ensure_object(dict)
 
@@ -89,7 +89,7 @@ def start(ctx, background: bool):
         )
         console.print(f"[green]Daemon started in background (PID {proc.pid})[/green]")
     else:
-        console.print("[green]Starting life observer (homelife.ai watching)...[/green]")
+        console.print("[green]Starting life observer (vida watching)...[/green]")
         from daemon.daemon import Daemon
 
         daemon = Daemon(config)
@@ -203,7 +203,7 @@ def capture(ctx):
 @cli.command()
 @click.pass_context
 def look(ctx):
-    """Capture a frame and have homelife.ai analyze it right now."""
+    """Capture a frame and have vida analyze it right now."""
     config: Config = ctx.obj["config"]
 
     from daemon.analysis.scene import SceneAnalyzer
@@ -258,11 +258,11 @@ def look(ctx):
 
     if description:
         label = f"[{activity}] " if activity else ""
-        console.print(Panel(f"{label}{description}", title="homelife.ai says", border_style="blue"))
+        console.print(Panel(f"{label}{description}", title="vida says", border_style="blue"))
         frame_id = db.insert_frame(frame)
         db.update_frame_analysis(frame_id, description, activity)
     else:
-        console.print("[yellow]homelife.ai could not analyze the frame[/yellow]")
+        console.print("[yellow]vida could not analyze the frame[/yellow]")
     db.close()
 
 
@@ -270,7 +270,7 @@ def look(ctx):
 @click.option("-n", "--count", default=5, help="Number of recent frames")
 @click.pass_context
 def recent(ctx, count: int):
-    """Show recent frame analyses by homelife.ai."""
+    """Show recent frame analyses by vida."""
     config: Config = ctx.obj["config"]
 
     from daemon.storage.database import Database
@@ -461,7 +461,7 @@ def report(ctx, target_date: str | None):
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
 @click.pass_context
 def review(ctx, target_date: str | None, as_json: bool):
-    """Generate review package for homelife.ai."""
+    """Generate review package for vida."""
     config: Config = ctx.obj["config"]
     d = _parse_date(target_date) if target_date else date.today()
 
@@ -485,7 +485,7 @@ def review(ctx, target_date: str | None, as_json: bool):
         prompt = packager.get_prompt(d)
         console.print(f"[green]Review package saved:[/green] {out_path}")
         console.print()
-        console.print(Panel(prompt, title="Prompt for homelife.ai", border_style="blue"))
+        console.print(Panel(prompt, title="Prompt for vida", border_style="blue"))
 
     db.close()
 
@@ -509,7 +509,7 @@ def notify_test(ctx):
     console.print(f"[dim]Sending test to {config.notify.provider}...[/dim]")
     ok = send_notification(
         config.notify,
-        "homelife.ai Test Notification",
+        "vida Test Notification",
         "This is a test message from daemon.ai. If you see this, notifications are working correctly!",
     )
     if ok:

@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for homelife.ai",
+  "description": "Default capabilities for vida",
   "windows": ["main"],
   "permissions": [
     "core:default",

@@ -146,7 +146,7 @@ pub fn run() {
             app.manage(daemon);
 
             // ── System tray ─────────────────────────────────────────────
-            let open_item = MenuItemBuilder::with_id("open", "Open homelife.ai").build(app)?;
+            let open_item = MenuItemBuilder::with_id("open", "Open vida").build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
 
             let menu = MenuBuilder::new(app)
@@ -158,7 +158,7 @@ pub fn run() {
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().cloned().unwrap())
                 .menu(&menu)
-                .tooltip("homelife.ai")
+                .tooltip("vida")
                 .on_menu_event(move |app, event| match event.id().as_ref() {
                     "open" => {
                         if let Some(w) = app.get_webview_window("main") {

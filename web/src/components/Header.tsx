@@ -40,7 +40,7 @@ export function Header({ date, onDateChange, availableDates, frameCount, onDashb
   return (
     <header className="header">
       <div className="header-left">
-        <img src="/favicon.ico" alt="homelife.ai" className="header-logo" onClick={() => window.location.reload()} />
+        <img src="/favicon.ico" alt="vida" className="header-logo" onClick={() => window.location.reload()} />
         <span className="header-count">{t('common.frames_count', { count: frameCount })}</span>
         <button className="dashboard-btn" onClick={onDashboardClick}>
           {t('header.dashboard')}

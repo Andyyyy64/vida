@@ -1,6 +1,6 @@
 {
-  "productName": "homelife.ai",
-  "identifier": "ai.homelife.app",
+  "productName": "vida",
+  "identifier": "com.vida.app",
   "version": "0.2.1",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -19,7 +19,7 @@
     },
     "windows": [
       {
-        "title": "homelife.ai",
+        "title": "vida",
         "width": 1400,
         "height": 900,
         "minWidth": 900,
@@ -30,6 +30,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "vida",
+    "shortDescription": "Personal AI life observer and analyzer",
     "resources": {
       "../../daemon/": "daemon/",
       "../../pyproject.toml": "pyproject.toml",
@@ -41,6 +43,11 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false
+      }
+    }
   }
 }

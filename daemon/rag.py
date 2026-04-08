@@ -13,7 +13,7 @@ from daemon.storage.database import Database
 log = logging.getLogger(__name__)
 
 # System prompt for the RAG chat
-SYSTEM_PROMPT = """あなたはhomelife.aiのアシスタントです。ユーザーの日常生活を記録・分析するシステムのデータにアクセスできます。
+SYSTEM_PROMPT = """あなたはvidaのアシスタントです。ユーザーの日常生活を記録・分析するシステムのデータにアクセスできます。
 
 以下のコンテキストはユーザーの生活記録データです（フレーム分析、チャットメッセージ、サマリーなど）。
 このデータをもとに、ユーザーの質問に自然な日本語で答えてください。

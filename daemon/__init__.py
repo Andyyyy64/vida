@@ -1,3 +1,3 @@
-"""homelife.ai - Personal Life Observer"""
+"""vida — Personal AI life observer and analyzer"""
 
-__version__ = "0.1.0"
+__version__ = "0.2.1"

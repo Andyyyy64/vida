@@ -8,7 +8,7 @@ interface Props {
   onOpenSettings: () => void;
 }
 
-const STORAGE_KEY = 'homelife_onboarded';
+const STORAGE_KEY = 'vida_onboarded';
 
 export function isOnboarded(): boolean {
   return localStorage.getItem(STORAGE_KEY) === '1';
