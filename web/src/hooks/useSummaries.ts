@@ -2,16 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { todayStr } from '../lib/date';
+import { getLiveDataPollInterval } from '../lib/demo-runtime';
+import { getRuntime } from '../lib/runtime';
 import { useToast } from './useToast';
 import type { Summary } from '../lib/types';
-
-const POLL_INTERVAL = 30_000;
 
 export function useSummaries(date: string, scale?: string) {
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
   const { t } = useTranslation();
+  const isDemo = getRuntime().isDemo;
 
   const fetchSummaries = useCallback(() => {
     if (!date) return;
@@ -38,11 +39,11 @@ export function useSummaries(date: string, scale?: string) {
   useEffect(() => {
     if (!date) return;
     const isToday = date === todayStr();
-    if (!isToday) return;
+    if (!isDemo && !isToday) return;
 
-    const id = setInterval(fetchSummaries, POLL_INTERVAL);
+    const id = setInterval(fetchSummaries, getLiveDataPollInterval(isDemo));
     return () => clearInterval(id);
-  }, [date, fetchSummaries]);
+  }, [date, fetchSummaries, isDemo]);
 
   return { summaries, loading };
 }

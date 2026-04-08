@@ -16,6 +16,7 @@
     "on": "ON",
     "off": "OFF",
     "live": "LIVE",
+    "demo": "デモ",
     "offline": "OFFLINE",
     "show": "表示",
     "hide": "非表示",
@@ -218,6 +219,12 @@
     "table_activity_mappings": "アクティビティマッピング",
     "table_window_events": "ウィンドウイベント",
     "table_knowledge": "ナレッジ"
+  },
+  "demo": {
+    "readonlyBadge": "読み取り専用デモ",
+    "settingsReadonly": "デモモードでは設定を変更できません。",
+    "onboardingReadonly": "デモモードではプロフィール保存は無効です。",
+    "simulatedBanner": "これはシミュレーションデモです。表示データは実データではありません。"
   },
   "activity": {
     "focus": "集中",

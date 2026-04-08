@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
 import { todayStr } from '../lib/date';
+import { getRuntime } from '../lib/runtime';
 
 export function useDailyMemo(date: string) {
   const [content, setContent] = useState('');
@@ -10,7 +11,8 @@ export function useDailyMemo(date: string) {
   const latestContent = useRef(content);
   const dirtyRef = useRef(false);
 
-  const readonly = date !== todayStr();
+  const isDemo = getRuntime().isDemo;
+  const readonly = isDemo || date !== todayStr();
 
   // Fetch memo when date changes
   useEffect(() => {

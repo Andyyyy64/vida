@@ -16,6 +16,7 @@
     "on": "ON",
     "off": "OFF",
     "live": "LIVE",
+    "demo": "Demo",
     "offline": "OFFLINE",
     "show": "Show",
     "hide": "Hide",
@@ -218,6 +219,12 @@
     "table_activity_mappings": "Activity mappings",
     "table_window_events": "Window events",
     "table_knowledge": "Knowledge"
+  },
+  "demo": {
+    "readonlyBadge": "Read-only demo",
+    "settingsReadonly": "Demo Mode — Settings are read-only.",
+    "onboardingReadonly": "Demo Mode — Profile editing is disabled.",
+    "simulatedBanner": "This is a simulated demo — data is generated, not real."
   },
   "activity": {
     "focus": "Focus",

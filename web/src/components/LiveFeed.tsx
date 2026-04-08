@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-
-const BASE_URL = `${window.location.protocol}//${window.location.hostname}:3002`;
-const STREAM_URL = `${BASE_URL}/stream`;
-const STREAM_POSE_URL = `${BASE_URL}/stream/pose`;
-const HEALTH_URL = `${BASE_URL}/health`;
+import { getRuntime } from '../lib/runtime';
 
 export function LiveFeed() {
   const { t } = useTranslation();
-  const [live, setLive] = useState(false);
+  const { liveFeed, isDemo } = getRuntime();
+  const [live, setLive] = useState(liveFeed.isLive);
   const [expanded, setExpanded] = useState(false);
   const [showPose, setShowPose] = useState(false);
 
@@ -16,15 +13,13 @@ export function LiveFeed() {
 
   // Poll /health every 3s for reliable LIVE/OFFLINE detection.
   useEffect(() => {
+    if (!liveFeed.healthUrl) return;
     const check = async () => {
       try {
-        const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(2000) });
-        if (res.ok) {
-          const data = await res.json();
-          setLive(!!data.live);
-        } else {
-          setLive(false);
-        }
+        const res = await fetch(liveFeed.healthUrl!, { signal: AbortSignal.timeout(2000) });
+        if (!res.ok) return setLive(false);
+        const data = await res.json();
+        setLive(!!data.live);
       } catch {
         setLive(false);
       }
@@ -32,7 +27,7 @@ export function LiveFeed() {
     check();
     const id = setInterval(check, 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [liveFeed.healthUrl]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -43,30 +38,64 @@ export function LiveFeed() {
     return () => window.removeEventListener('keydown', onKey);
   }, [expanded, handleClose]);
 
-  const modalStreamUrl = showPose ? STREAM_POSE_URL : STREAM_URL;
+  const label = isDemo ? t('common.demo') : t('common.live');
 
-  return (
-    <>
-      {live && (
+  if (isDemo) {
+    return (
+      <>
         <div className="live-feed" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }}>
           <div className="live-indicator active">
             <span className="live-dot" />
-            {t('common.live')}
+            {label}
           </div>
-          <img
-            src={STREAM_URL}
-            alt={t('common.live')}
-            className="live-image"
-          />
+          <div id="demo-live-feed-preview-slot" aria-label={label} className="live-image live-image--canvas" />
         </div>
-      )}
+        {expanded && (
+          <div className="live-modal-overlay" onClick={handleClose}>
+            <div className="live-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="live-modal-header">
+                <div className="live-indicator active">
+                  <span className="live-dot" />
+                  {label}
+                </div>
+                <div className="live-modal-controls">
+                  <button className="live-modal-close" onClick={handleClose}>
+                    &times;
+                  </button>
+                </div>
+              </div>
+              <div id="demo-live-feed-modal-slot" className="live-modal-canvas" />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  const modalStreamUrl = showPose ? liveFeed.poseUrl : liveFeed.streamUrl;
+
+  if (!live) return null;
+
+  return (
+    <>
+      <div className="live-feed" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }}>
+        <div className="live-indicator active">
+          <span className="live-dot" />
+          {label}
+        </div>
+        <img
+          src={liveFeed.streamUrl!}
+          alt={label}
+          className="live-image"
+        />
+      </div>
       {expanded && (
         <div className="live-modal-overlay" onClick={handleClose}>
           <div className="live-modal" onClick={(e) => e.stopPropagation()}>
             <div className="live-modal-header">
               <div className={`live-indicator ${live ? 'active' : ''}`}>
                 <span className={`live-dot ${live ? '' : 'offline'}`} />
-                {t('common.live')}
+                {label}
               </div>
               <div className="live-modal-controls">
                 <button
@@ -89,8 +118,8 @@ export function LiveFeed() {
               </div>
             </div>
             <img
-              src={modalStreamUrl}
-              alt={t('common.live')}
+              src={modalStreamUrl!}
+              alt={label}
               className="live-modal-image"
             />
           </div>

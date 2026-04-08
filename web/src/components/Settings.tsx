@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
+import { getRuntime } from '../lib/runtime';
 
 interface SettingsData {
   llm: { provider: string; gemini_model: string; claude_model: string };
@@ -22,8 +23,63 @@ interface DeviceList   { cameras: CameraDevice[]; audio: AudioDevice[]; error?: 
 
 interface Props { onClose: () => void }
 
+const DEFAULT_SETTINGS_DATA: SettingsData = {
+  llm: {
+    provider: 'gemini',
+    gemini_model: 'gemini-3.1-flash-lite-preview',
+    claude_model: 'haiku',
+  },
+  capture: {
+    device: 0,
+    interval_sec: 30,
+    audio_device: '',
+  },
+  presence: {
+    enabled: true,
+    sleep_start_hour: 23,
+    sleep_end_hour: 8,
+  },
+  chat: {
+    enabled: false,
+    discord_enabled: false,
+    discord_poll_interval: 60,
+    discord_backfill_months: 3,
+  },
+  env: {},
+  env_masked: {},
+};
+
+function normalizeSettingsData(input: Partial<SettingsData> | null | undefined): SettingsData {
+  return {
+    llm: {
+      provider: input?.llm?.provider ?? DEFAULT_SETTINGS_DATA.llm.provider,
+      gemini_model: input?.llm?.gemini_model ?? DEFAULT_SETTINGS_DATA.llm.gemini_model,
+      claude_model: input?.llm?.claude_model ?? DEFAULT_SETTINGS_DATA.llm.claude_model,
+    },
+    capture: {
+      device: input?.capture?.device ?? DEFAULT_SETTINGS_DATA.capture.device,
+      interval_sec: input?.capture?.interval_sec ?? DEFAULT_SETTINGS_DATA.capture.interval_sec,
+      audio_device: input?.capture?.audio_device ?? DEFAULT_SETTINGS_DATA.capture.audio_device,
+    },
+    presence: {
+      enabled: input?.presence?.enabled ?? DEFAULT_SETTINGS_DATA.presence.enabled,
+      sleep_start_hour: input?.presence?.sleep_start_hour ?? DEFAULT_SETTINGS_DATA.presence.sleep_start_hour,
+      sleep_end_hour: input?.presence?.sleep_end_hour ?? DEFAULT_SETTINGS_DATA.presence.sleep_end_hour,
+    },
+    chat: {
+      enabled: input?.chat?.enabled ?? DEFAULT_SETTINGS_DATA.chat.enabled,
+      discord_enabled: input?.chat?.discord_enabled ?? DEFAULT_SETTINGS_DATA.chat.discord_enabled,
+      discord_poll_interval: input?.chat?.discord_poll_interval ?? DEFAULT_SETTINGS_DATA.chat.discord_poll_interval,
+      discord_backfill_months: input?.chat?.discord_backfill_months ?? DEFAULT_SETTINGS_DATA.chat.discord_backfill_months,
+    },
+    env: input?.env ?? DEFAULT_SETTINGS_DATA.env,
+    env_masked: input?.env_masked ?? DEFAULT_SETTINGS_DATA.env_masked,
+  };
+}
+
 export function Settings({ onClose }: Props) {
   const { t, i18n } = useTranslation();
+  const isDemo = getRuntime().isDemo;
   const [data, setData]           = useState<SettingsData | null>(null);
   const [devices, setDevices]     = useState<DeviceList | null>(null);
   const [devLoading, setDevLoading] = useState(true);
@@ -39,16 +95,17 @@ export function Settings({ onClose }: Props) {
   // Load settings, devices, and context in parallel
   useEffect(() => {
     Promise.all([
-      api.settings.get() as Promise<SettingsData>,
+      api.settings.get() as Promise<Partial<SettingsData>>,
       api.devices.get() as Promise<DeviceList>,
       api.context.get().catch(() => ({ content: '' })),
     ])
-      .then(([s, d, ctx]: [SettingsData, DeviceList, { content: string }]) => {
-        setData(s);
+      .then(([s, d, ctx]: [Partial<SettingsData>, DeviceList, { content: string }]) => {
+        const normalized = normalizeSettingsData(s);
+        setData(normalized);
         setDevices(d);
         setContext(ctx.content);
         const init: Record<string, string> = {};
-        for (const k of Object.keys(s.env_masked)) init[k] = '';
+        for (const k of Object.keys(normalized.env_masked)) init[k] = '';
         setEnvInputs(init);
       })
       .catch(() => setError(t('settings.failedToLoad')))
@@ -79,7 +136,7 @@ export function Settings({ onClose }: Props) {
   }
 
   async function handleSave() {
-    if (!data) return;
+    if (isDemo || !data) return;
     setSaving(true);
     setError('');
     try {
@@ -89,8 +146,8 @@ export function Settings({ onClose }: Props) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       setEnvInputs((prev) => Object.fromEntries(Object.keys(prev).map((k) => [k, ''])));
-      const updated = await api.settings.get().catch(() => null) as SettingsData | null;
-      if (updated) setData(updated);
+      const updated = await api.settings.get().catch(() => null) as Partial<SettingsData> | null;
+      if (updated) setData(normalizeSettingsData(updated));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -99,6 +156,7 @@ export function Settings({ onClose }: Props) {
   }
 
   const handleContextChange = useCallback((value: string) => {
+    if (isDemo) return;
     setContext(value);
     if (contextTimer.current) clearTimeout(contextTimer.current);
     contextTimer.current = setTimeout(async () => {
@@ -106,7 +164,7 @@ export function Settings({ onClose }: Props) {
       try { await api.context.put(value); } catch { /* silent */ }
       setContextSaving(false);
     }, 1000);
-  }, []);
+  }, [isDemo]);
 
   const cams = devices?.cameras ?? [];
   const mics = devices?.audio ?? [];
@@ -126,13 +184,15 @@ export function Settings({ onClose }: Props) {
       <div className="settings-modal">
         <div className="settings-header">
           <span className="settings-title">{t('settings.title')}</span>
+          {isDemo && <span className="settings-demo-badge">{t('demo.readonlyBadge')}</span>}
           <button className="settings-close" onClick={onClose}>{t('settings.closeButton')}</button>
         </div>
+        {isDemo && <p className="settings-hint-block">{t('demo.settingsReadonly')}</p>}
 
         {!data ? (
           <div className="settings-loading">{error || t('common.loading')}</div>
         ) : (
-          <div className="settings-body">
+          <fieldset className="settings-body settings-body-fieldset" disabled={isDemo}>
 
             {/* ── Profile (context.md) ── */}
             <section className="settings-section">
@@ -147,6 +207,7 @@ export function Settings({ onClose }: Props) {
                 onChange={(e) => handleContextChange(e.target.value)}
                 rows={10}
                 spellCheck={false}
+                readOnly={isDemo}
               />
             </section>
 
@@ -356,7 +417,7 @@ export function Settings({ onClose }: Props) {
               <p className="settings-hint-block" dangerouslySetInnerHTML={{ __html: t('settings.apiKeys.hint') }} />
             </section>
 
-          </div>
+          </fieldset>
         )}
 
         <div className="settings-footer">
@@ -367,7 +428,7 @@ export function Settings({ onClose }: Props) {
             <button
               className="settings-save-btn"
               onClick={handleSave}
-              disabled={saving || !data}
+              disabled={isDemo || saving || !data}
             >
               {saving ? t('common.saving') : t('common.save')}
             </button>

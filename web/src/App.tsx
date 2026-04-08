@@ -21,7 +21,9 @@ import { useDailyMemo } from './hooks/useDailyMemo';
 import { useToast } from './hooks/useToast';
 import { api } from './lib/api';
 import { loadActivityMappings } from './lib/activity';
-import { formatDate, todayStr } from './lib/date';
+import { formatDate } from './lib/date';
+import { getLiveDataPollInterval, resolveDemoSelectedFrame } from './lib/demo-runtime';
+import { getRuntime } from './lib/runtime';
 import type { Frame, DayStats } from './lib/types';
 import type { SummaryTimeRange } from './components/SummaryPanel';
 
@@ -42,10 +44,17 @@ function getInitialTheme(): 'light' | 'dark' {
   return 'dark';
 }
 
+function getInitialDate(): string {
+  const runtime = getRuntime();
+  return formatDate(runtime.getVirtualTime?.() ?? new Date());
+}
+
 export default function App() {
   const { t } = useTranslation();
+  const runtime = getRuntime();
+  const isDemo = runtime.isDemo;
   const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme);
-  const [date, setDate] = useState(formatDate(new Date()));
+  const [date, setDate] = useState(getInitialDate);
   const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
   const [stats, setStats] = useState<DayStats | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
@@ -57,6 +66,7 @@ export default function App() {
   const [highlightRange, setHighlightRange] = useState<SummaryTimeRange | null>(null);
   const [mobilePanel, setMobilePanel] = useState<'timeline' | 'left' | 'detail'>('timeline');
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [demoAutoFollowLatest, setDemoAutoFollowLatest] = useState(true);
   const isMobile = useIsMobile();
   const { addToast } = useToast();
 
@@ -83,7 +93,12 @@ export default function App() {
 
   useEffect(() => {
     loadActivityMappings().catch(console.error);
-    api.stats.dates().then(setAvailableDates).catch(console.error);
+    api.stats.dates().then((dates) => {
+      setAvailableDates(dates);
+      if (dates.length > 0 && !dates.includes(date)) {
+        setDate(dates[dates.length - 1]);
+      }
+    }).catch(console.error);
     Promise.all([
       api.status(),
       api.settings.get() as Promise<{ env_masked: Record<string, string> }>,
@@ -115,20 +130,37 @@ export default function App() {
   // Poll stats when viewing today
   useEffect(() => {
     const isToday = date === formatDate(new Date());
-    if (!isToday) return;
-    const id = setInterval(fetchStats, 30_000);
+    if (!isDemo && !isToday) return;
+    const id = setInterval(fetchStats, getLiveDataPollInterval(isDemo));
     return () => clearInterval(id);
-  }, [date, fetchStats]);
+  }, [date, fetchStats, isDemo]);
 
   // Reset selection when date changes
   useEffect(() => {
     setSelectedFrame(null);
+    setDemoAutoFollowLatest(true);
   }, [date]);
 
-  const handleSelectFrame = useCallback((frame: Frame) => {
+  useEffect(() => {
+    const nextFrame = resolveDemoSelectedFrame({
+      isDemo,
+      autoFollowLatest: demoAutoFollowLatest,
+      previousSelectedFrame: selectedFrame,
+      frames,
+    });
+    if (!nextFrame) return;
+    if (selectedFrame?.timestamp === nextFrame.timestamp && selectedFrame.id === nextFrame.id) return;
+    setSelectedFrame(nextFrame);
+  }, [demoAutoFollowLatest, frames, isDemo, selectedFrame]);
+
+  const handleSelectFrame = useCallback((frame: Frame, options?: { autoFollowLatest?: boolean }) => {
     setSelectedFrame(frame);
+    if (isDemo) {
+      const isLatestFrame = frames[frames.length - 1]?.timestamp === frame.timestamp;
+      setDemoAutoFollowLatest(options?.autoFollowLatest ?? isLatestFrame);
+    }
     if (isMobile) setMobilePanel('detail');
-  }, [isMobile]);
+  }, [frames, isDemo, isMobile]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -142,13 +174,15 @@ export default function App() {
       if (idx === -1) return;
       if (e.key === 'ArrowLeft' && idx > 0) {
         e.preventDefault();
+        if (isDemo) setDemoAutoFollowLatest(false);
         setSelectedFrame(frames[idx - 1]);
       } else if (e.key === 'ArrowRight' && idx < frames.length - 1) {
         e.preventDefault();
+        if (isDemo) setDemoAutoFollowLatest(false);
         setSelectedFrame(frames[idx + 1]);
       }
     },
-    [selectedFrame, frames, showDashboard, showChat],
+    [isDemo, selectedFrame, frames, showDashboard, showChat],
   );
 
   useEffect(() => {
@@ -168,12 +202,14 @@ export default function App() {
       if (idx === -1) return;
       e.preventDefault();
       if (e.deltaY > 0 && idx < frames.length - 1) {
+        if (isDemo) setDemoAutoFollowLatest(false);
         setSelectedFrame(frames[idx + 1]);
       } else if (e.deltaY < 0 && idx > 0) {
+        if (isDemo) setDemoAutoFollowLatest(false);
         setSelectedFrame(frames[idx - 1]);
       }
     },
-    [selectedFrame, frames, showDashboard, showChat, showSettings, showData],
+    [isDemo, selectedFrame, frames, showDashboard, showChat, showSettings, showData],
   );
 
   useEffect(() => {
@@ -250,7 +286,7 @@ export default function App() {
                   setHighlightRange(range);
                   // Jump to first frame in range
                   const frame = frames.find((f) => f.timestamp >= range.from && f.timestamp <= range.to);
-                  if (frame) handleSelectFrame(frame);
+                  if (frame) handleSelectFrame(frame, { autoFollowLatest: false });
                 }
               }}
             />
@@ -294,6 +330,11 @@ export default function App() {
       >
         ⚙
       </button>
+      {isDemo && (
+        <div className="demo-footer-banner">
+          {t('demo.simulatedBanner')}
+        </div>
+      )}
     </div>
   );
 }

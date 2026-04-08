@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LiveFeed } from './LiveFeed';
+import { getRuntime } from '../lib/runtime';
 import { LOCALE_MAP } from '../i18n';
 
 interface Props {
@@ -15,12 +16,19 @@ interface Props {
   onThemeToggle: () => void;
 }
 
+const DEMO_CLOCK_INTERVAL_MS = 33;
+const DEFAULT_CLOCK_INTERVAL_MS = 1000;
+
 function useClock() {
-  const [now, setNow] = useState(new Date());
+  const runtime = getRuntime();
+  const [now, setNow] = useState(() => runtime.getVirtualTime?.() ?? new Date());
+
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
+    const intervalMs = runtime.getVirtualTime ? DEMO_CLOCK_INTERVAL_MS : DEFAULT_CLOCK_INTERVAL_MS;
+    const id = setInterval(() => setNow(runtime.getVirtualTime?.() ?? new Date()), intervalMs);
     return () => clearInterval(id);
-  }, []);
+  }, [runtime]);
+
   return now;
 }
 

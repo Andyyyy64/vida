@@ -2,16 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { todayStr } from '../lib/date';
+import { getLiveDataPollInterval } from '../lib/demo-runtime';
+import { getRuntime } from '../lib/runtime';
 import { useToast } from './useToast';
 import type { Event } from '../lib/types';
-
-const POLL_INTERVAL = 30_000;
 
 export function useEvents(date: string) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
   const { t } = useTranslation();
+  const isDemo = getRuntime().isDemo;
 
   const fetchEvents = useCallback(() => {
     if (!date) return;
@@ -38,11 +39,11 @@ export function useEvents(date: string) {
   useEffect(() => {
     if (!date) return;
     const isToday = date === todayStr();
-    if (!isToday) return;
+    if (!isDemo && !isToday) return;
 
-    const id = setInterval(fetchEvents, POLL_INTERVAL);
+    const id = setInterval(fetchEvents, getLiveDataPollInterval(isDemo));
     return () => clearInterval(id);
-  }, [date, fetchEvents]);
+  }, [date, fetchEvents, isDemo]);
 
   return { events, loading };
 }

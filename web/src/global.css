@@ -124,6 +124,26 @@ pre {
   font-family: var(--font-mono);
 }
 
+.demo-footer-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-md);
+  background: rgba(var(--accent-rgb), 0.12);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
 .main-layout {
   flex: 1;
   display: flex;
@@ -830,6 +850,17 @@ pre {
   border: 1px solid var(--border);
 }
 
+.live-image--canvas {
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.live-image--canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .live-modal-overlay {
   position: fixed;
   inset: 0;
@@ -910,6 +941,13 @@ pre {
   max-width: 90vw;
   height: auto;
   object-fit: contain;
+}
+
+.live-modal-canvas {
+  width: 640px;
+  max-width: 90vw;
+  height: min(480px, 70vh);
+  background: #111827;
 }
 
 /* ── Activity Heatmap ── */
@@ -1812,6 +1850,12 @@ pre {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+}
+
+.settings-body-fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
 }
 
 .settings-warnings {

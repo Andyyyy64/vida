@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
+import { getRuntime } from '../lib/runtime';
 
 interface Props {
   onClose: () => void;
@@ -50,8 +51,10 @@ export function Onboarding({ onClose, onOpenSettings }: Props) {
     });
   }, []);
 
+  const isDemo = getRuntime().isDemo;
+
   const saveContext = useCallback(async () => {
-    if (!context.trim()) return;
+    if (isDemo || !context.trim()) return;
     setSaving(true);
     try {
       await api.context.put(context);
@@ -60,7 +63,7 @@ export function Onboarding({ onClose, onOpenSettings }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [context]);
+  }, [context, isDemo]);
 
   const finish = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, '1');
@@ -132,12 +135,14 @@ export function Onboarding({ onClose, onOpenSettings }: Props) {
             <>
               <h2 className="onboarding-title">{t('onboarding.profile.title')}</h2>
               <p className="onboarding-description">{t('onboarding.profile.description')}</p>
+              {isDemo && <p className="onboarding-hint">{t('demo.onboardingReadonly')}</p>}
               <textarea
                 className="onboarding-context-input"
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
                 rows={12}
                 spellCheck={false}
+                readOnly={isDemo}
               />
               <p className="onboarding-hint">{t('onboarding.profile.hint')}</p>
             </>
