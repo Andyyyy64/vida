@@ -1,7 +1,7 @@
 {
   "productName": "vida",
   "identifier": "com.vida.app",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
