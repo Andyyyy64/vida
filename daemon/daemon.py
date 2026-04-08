@@ -117,6 +117,7 @@ class Daemon:
     def run(self):
         try:
             import setproctitle
+
             setproctitle.setproctitle("vida")
         except ImportError:
             pass
