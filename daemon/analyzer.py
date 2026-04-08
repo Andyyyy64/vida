@@ -291,7 +291,10 @@ class FrameAnalyzer:
         parts.append(
             "\n以下のJSON形式で出力してください（JSON以外は出力しないこと）:\n"
             '{"activity": "カテゴリ名", "meta_category": "focus|communication|entertainment|browsing|break|idle", "description": "説明文"}\n'
-            "meta_categoryは上記6つのいずれか1つを選んでください。\n"
+            "注意:\n"
+            "- activityは具体的な日本語の活動名のみ（例: プログラミング、休憩、動画視聴）\n"
+            "- activityにmeta_categoryを含めないこと（例: ×「休憩(break)」 ○「休憩」）\n"
+            "- meta_categoryは上記6つのいずれか1つを選んでください\n"
         )
 
         prompt = "\n".join(parts)

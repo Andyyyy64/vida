@@ -103,6 +103,18 @@ class ActivityManager:
             return raw, "other"
 
         cleaned = raw.strip()
+
+        # Strip parenthetical suffixes that LLMs sometimes append
+        # e.g. "アイドル(idle)" → "アイドル", "集中作業(focus)" → "集中作業"
+        import re
+        m = re.match(r'^(.+?)\s*[（(]([a-zA-Z]+)[)）]$', cleaned)
+        if m:
+            cleaned = m.group(1).strip()
+            suffix = m.group(2).lower()
+            # Use the suffix as meta hint if it's a valid meta-category
+            if suffix in VALID_META_CATEGORIES and (not meta or meta == "other"):
+                meta = suffix
+
         meta = meta.strip().lower() if meta else "other"
         if meta not in VALID_META_CATEGORIES:
             meta = "other"
