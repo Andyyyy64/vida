@@ -11,6 +11,8 @@ docker-compose.override.yml
 web/electron/dist/
 web/src-tauri/target/
 web/src-tauri/gen/
+web/test-results/
+web/playwright-report/
 release/
 docs/superpowers/
 .superpowers/
