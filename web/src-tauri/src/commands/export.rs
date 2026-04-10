@@ -76,10 +76,11 @@ pub fn export_frames_csv(
     format: Option<String>,
     db: State<AppDb>,
 ) -> Result<String, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{date}T00:00:00");
     let end = format!("{date}T23:59:59");
-    let fmt = format.unwrap_or_else(|| "csv".to_string());
+    let fmt = validate_export_format(format)?;
 
     let sql = "SELECT * FROM frames WHERE timestamp BETWEEN ?1 AND ?2 ORDER BY timestamp";
     let params: &[&dyn rusqlite::types::ToSql] = &[&start, &end];
@@ -98,10 +99,12 @@ pub fn export_summaries_csv(
     format: Option<String>,
     db: State<AppDb>,
 ) -> Result<String, String> {
+    crate::commands::validate::validate_date(&from)?;
+    crate::commands::validate::validate_date(&to)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{from}T00:00:00");
     let end = format!("{to}T23:59:59");
-    let fmt = format.unwrap_or_else(|| "csv".to_string());
+    let fmt = validate_export_format(format)?;
 
     let sql = "SELECT * FROM summaries WHERE timestamp BETWEEN ?1 AND ?2 ORDER BY timestamp";
     let params: &[&dyn rusqlite::types::ToSql] = &[&start, &end];
@@ -113,8 +116,17 @@ pub fn export_summaries_csv(
     }
 }
 
+fn validate_export_format(format: Option<String>) -> Result<String, String> {
+    match format.as_deref() {
+        None | Some("csv") => Ok("csv".to_string()),
+        Some("json") => Ok("json".to_string()),
+        Some(other) => Err(format!("unsupported export format: {other}")),
+    }
+}
+
 #[tauri::command]
 pub fn export_report(date: String, db: State<AppDb>) -> Result<String, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let mut stmt = match conn.prepare("SELECT * FROM reports WHERE date = ?1") {

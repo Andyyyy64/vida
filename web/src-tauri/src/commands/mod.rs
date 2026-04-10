@@ -1,4 +1,5 @@
 pub mod activities;
+pub mod validate;
 pub mod chat;
 pub mod context;
 pub mod data;

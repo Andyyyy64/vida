@@ -4,6 +4,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import shutil
 import signal
 import threading
@@ -43,6 +44,26 @@ from daemon.storage.models import SCALES, Event, Frame, SceneType
 CHANGE_CHECK_INTERVAL = 1  # seconds between change checks
 
 log = logging.getLogger(__name__)
+
+# Heuristic patterns used to scrub secrets from exception messages before
+# broadcasting them to WebSocket clients. LLM SDKs often embed the API key in
+# URL query strings or error messages verbatim.
+_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(key=)[^&\s'\"]+", re.IGNORECASE),
+    re.compile(r"(api[_-]?key['\"]?\s*[:=]\s*['\"]?)[A-Za-z0-9_\-]{10,}", re.IGNORECASE),
+    re.compile(r"Bearer\s+[A-Za-z0-9._\-]+", re.IGNORECASE),
+    re.compile(r"sk-[A-Za-z0-9_\-]{20,}"),  # OpenAI-style
+    re.compile(r"AIza[0-9A-Za-z_\-]{35}"),   # Google API key format
+)
+
+
+def _scrub_secrets(text: str) -> str:
+    """Remove API keys / bearer tokens from an arbitrary string."""
+    if not text:
+        return text
+    for pat in _SECRET_PATTERNS:
+        text = pat.sub(lambda m: (m.group(1) if m.groups() else "") + "***", text)
+    return text
 
 
 class Daemon:
@@ -141,6 +162,15 @@ class Daemon:
             setproctitle.setproctitle("vida")
         except ImportError:
             pass
+        # Tighten the umask so any new files/dirs created by this process
+        # (frames, screens, audio, status.json, pid) are owner-only. Other
+        # local users should never be able to read captured media or the
+        # SQLite database.
+        try:
+            os.umask(0o077)
+        except Exception:
+            pass
+        self._secure_data_dir()
         self._write_pid()
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
@@ -522,7 +552,9 @@ class Daemon:
                 elif "429" in llm_error_msg or "ResourceExhausted" in llm_error_msg:
                     error_display = "API rate limit exceeded"
                 else:
-                    error_display = llm_error_msg[:200] if llm_error_msg else "LLM analysis failed"
+                    # Scrub secrets and truncate before sending to any client.
+                    scrubbed = _scrub_secrets(llm_error_msg) if llm_error_msg else ""
+                    error_display = scrubbed[:200] if scrubbed else "LLM analysis failed"
                 self._ws.broadcast(WSEvent("llm_error", {
                     "message": error_display,
                     "consecutive_failures": self._consecutive_llm_failures,
@@ -731,9 +763,36 @@ class Daemon:
         status_path = self._config.data_dir / "status.json"
         status_path.write_text(json.dumps(status))
 
+    def _secure_data_dir(self) -> None:
+        """Best-effort tighten permissions on the data directory and DB.
+
+        On POSIX we chmod 700 the directory and 600 the database file so
+        another user on the machine can't read captured frames / keys.
+        On Windows the default ACL already limits access to the owner.
+        """
+        if os.name != "posix":
+            return
+        try:
+            data_dir = self._config.data_dir
+            data_dir.mkdir(parents=True, exist_ok=True)
+            os.chmod(data_dir, 0o700)
+            db_path = self._config.db_path
+            if db_path.exists():
+                os.chmod(db_path, 0o600)
+            # SQLite WAL/SHM sidecars
+            for suffix in ("-wal", "-shm"):
+                sidecar = db_path.with_name(db_path.name + suffix)
+                if sidecar.exists():
+                    os.chmod(sidecar, 0o600)
+        except Exception:
+            log.exception("Failed to tighten data dir permissions")
+
     def _write_pid(self):
         self._config.pid_file.parent.mkdir(parents=True, exist_ok=True)
         self._config.pid_file.write_text(str(os.getpid()))
+        if os.name == "posix":
+            with contextlib.suppress(Exception):
+                os.chmod(self._config.pid_file, 0o600)
 
     def _cleanup_pid(self):
         if self._config.pid_file.exists():

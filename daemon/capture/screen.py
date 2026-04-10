@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -24,7 +25,10 @@ $bitmap.Dispose()
 Write-Output $tmpFile
 """
 
-# PowerShell script for native Windows (save directly)
+# PowerShell script for native Windows. The target path is read from the
+# $env:VIDA_SCREEN_PATH environment variable (NOT interpolated into the
+# script body) so that paths containing quotes or PowerShell metacharacters
+# can never be misinterpreted as code.
 _PS_SCRIPT_DIRECT = r"""
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -32,7 +36,9 @@ $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $bitmap = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-$bitmap.Save('{path}')
+$target = $env:VIDA_SCREEN_PATH
+if (-not $target) { throw 'VIDA_SCREEN_PATH not set' }
+$bitmap.Save($target)
 $graphics.Dispose()
 $bitmap.Dispose()
 """
@@ -86,16 +92,23 @@ class ScreenCapture:
             return None
 
     def _capture_windows(self, filepath: Path) -> str | None:
-        """Capture screen on native Windows using PowerShell directly."""
-        script = _PS_SCRIPT_DIRECT.format(path=str(filepath))
+        """Capture screen on native Windows using PowerShell directly.
+
+        The target path is passed via environment variable so that paths
+        containing quotes/metacharacters can't be interpreted as PowerShell
+        code (command injection defence).
+        """
+        env = os.environ.copy()
+        env["VIDA_SCREEN_PATH"] = str(filepath)
         try:
             result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", script],
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS_SCRIPT_DIRECT],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
                 timeout=10,
+                env=env,
             )
             if result.returncode != 0:
                 log.warning("Screen capture failed: %s", result.stderr[:200])

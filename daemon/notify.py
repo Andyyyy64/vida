@@ -14,6 +14,31 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# Only allow webhook POSTs to these host suffixes. This prevents someone
+# with write access to the settings table from turning the daemon into an
+# SSRF gadget pointed at internal/localhost services.
+_ALLOWED_WEBHOOK_HOSTS: tuple[str, ...] = (
+    "discord.com",
+    "discordapp.com",
+    "ptb.discord.com",
+    "canary.discord.com",
+    "notify-api.line.me",
+)
+
+
+def _is_allowed_webhook(url: str) -> bool:
+    """Return True if the URL is an HTTPS POST to a known notification service."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme != "https":
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    return any(host == allowed or host.endswith("." + allowed) for allowed in _ALLOWED_WEBHOOK_HOSTS)
+
 
 def send_notification(config: NotifyConfig, title: str, body: str) -> bool:
     """Send a notification via configured provider. Returns True on success."""
@@ -21,8 +46,14 @@ def send_notification(config: NotifyConfig, title: str, body: str) -> bool:
         return False
 
     if config.provider == "discord":
+        # SSRF guard: only real Discord webhook endpoints are allowed.
+        if not _is_allowed_webhook(config.webhook_url):
+            log.warning("Rejected Discord webhook URL (host not allowed)")
+            return False
         return _send_discord(config.webhook_url, title, body)
     elif config.provider == "line":
+        # LINE Notify treats webhook_url as an access token, not a URL.
+        # The actual endpoint is hardcoded and validated below.
         return _send_line(config.webhook_url, title, body)
     else:
         log.warning("Unknown notification provider: %s", config.provider)

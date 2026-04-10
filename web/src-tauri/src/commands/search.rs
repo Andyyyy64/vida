@@ -9,6 +9,21 @@ pub fn search_text(
     to: Option<String>,
     db: State<AppDb>,
 ) -> Result<SearchResults, String> {
+    // Reject empty or absurdly long queries — FTS5 can eat CPU on
+    // complex MATCH expressions and we don't want the UI hanging.
+    let q = q.trim().to_string();
+    if q.is_empty() {
+        return Ok(SearchResults { frames: vec![], summaries: vec![] });
+    }
+    if q.len() > 200 {
+        return Err("query too long".to_string());
+    }
+    if let Some(ref f) = from {
+        crate::commands::validate::validate_date(f)?;
+    }
+    if let Some(ref t) = to {
+        crate::commands::validate::validate_date(t)?;
+    }
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let limit = 50i64;

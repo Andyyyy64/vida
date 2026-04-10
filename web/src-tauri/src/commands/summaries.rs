@@ -18,6 +18,13 @@ pub fn get_summaries(
     scale: Option<String>,
     db: State<AppDb>,
 ) -> Result<Vec<Summary>, String> {
+    crate::commands::validate::validate_date(&date)?;
+    // Scale must be one of the known summary intervals.
+    if let Some(ref s) = scale {
+        if !matches!(s.as_str(), "10m" | "30m" | "1h" | "6h" | "12h" | "24h") {
+            return Err("invalid scale".to_string());
+        }
+    }
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{date}T00:00:00");
     let end = format!("{date}T23:59:59");

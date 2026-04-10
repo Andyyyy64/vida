@@ -163,12 +163,22 @@ pub fn put_settings(
     entries.insert("chat.discord.poll_interval".to_string(), discord_poll.to_string());
     entries.insert("chat.discord.backfill_months".to_string(), discord_backfill.to_string());
 
-    // Env keys — only update if user provided a real (non-masked) value
+    // Env keys — only update if user provided a real (non-masked) value.
+    // We iterate the ALLOW-LISTED keys, never the user's map, so arbitrary
+    // environment variable names can't be smuggled into the settings table.
+    // Reject values containing control characters to prevent newline
+    // injection if the value is ever exported as a real env var.
     if let Some(env_obj) = body.get("env").and_then(|v| v.as_object()) {
         for key in ENV_KEYS {
             if let Some(val) = env_obj.get(*key).and_then(|v| v.as_str()) {
                 if val.starts_with("••••") {
                     continue; // Masked placeholder — don't overwrite
+                }
+                if val.len() > 4096 {
+                    return Err(format!("{key}: value too long"));
+                }
+                if val.chars().any(|c| c == '\n' || c == '\r' || c == '\0') {
+                    return Err(format!("{key}: invalid characters"));
                 }
                 entries.insert(format!("env.{key}"), val.to_string());
             }

@@ -4,6 +4,7 @@ use tauri::State;
 
 #[tauri::command]
 pub fn get_sessions(date: String, db: State<AppDb>) -> Result<Vec<Session>, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{date}T00:00:00");
     let end = format!("{date}T23:59:59");

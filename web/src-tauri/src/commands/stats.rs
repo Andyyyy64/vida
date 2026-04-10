@@ -5,6 +5,7 @@ use tauri::State;
 
 #[tauri::command]
 pub fn get_stats(date: String, db: State<AppDb>) -> Result<DayStats, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{date}T00:00:00");
     let end = format!("{date}T23:59:59");
@@ -106,6 +107,7 @@ fn estimate_frame_duration(conn: &rusqlite::Connection, start: &str, end: &str) 
 
 #[tauri::command]
 pub fn get_activities(date: String, db: State<AppDb>) -> Result<ActivityStats, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{date}T00:00:00");
     let end = format!("{date}T23:59:59");
@@ -163,6 +165,7 @@ pub fn get_activities(date: String, db: State<AppDb>) -> Result<ActivityStats, S
 
 #[tauri::command]
 pub fn get_apps(date: String, db: State<AppDb>) -> Result<Vec<AppStat>, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{date}T00:00:00");
     let end = format!("{date}T23:59:59");
@@ -304,6 +307,8 @@ pub fn get_range_stats(
     to: String,
     db: State<AppDb>,
 ) -> Result<RangeStats, String> {
+    crate::commands::validate::validate_date(&from)?;
+    crate::commands::validate::validate_date(&to)?;
     let start = format!("{from}T00:00:00");
     let end = format!("{to}T23:59:59");
 

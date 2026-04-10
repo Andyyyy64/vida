@@ -5,6 +5,7 @@ use tauri::State;
 
 #[tauri::command]
 pub fn get_memo(date: String, db: State<AppDb>) -> Result<Option<Memo>, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let mut stmt = conn
@@ -33,6 +34,10 @@ pub fn get_memo(date: String, db: State<AppDb>) -> Result<Option<Memo>, String> 
 
 #[tauri::command]
 pub fn put_memo(date: String, content: String, db: State<AppDb>) -> Result<Memo, String> {
+    crate::commands::validate::validate_date(&date)?;
+    if content.len() > 65536 {
+        return Err("memo too large".to_string());
+    }
     // Only allow editing today's memo (use local date, not UTC)
     let today = Local::now().format("%Y-%m-%d").to_string();
     if date != today {

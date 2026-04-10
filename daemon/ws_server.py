@@ -17,6 +17,36 @@ from typing import Any, Callable
 
 log = logging.getLogger(__name__)
 
+# Allowed message types for inbound messages. Anything else is rejected.
+# Keep this narrow — adding a new type means exposing a new DB write path.
+_ALLOWED_MESSAGE_TYPES: frozenset[str] = frozenset({
+    "ping",
+    "frame_analysis",
+    "create_summary",
+})
+
+# Allowed Origin values for browser-based clients. Non-browser websocket
+# clients (Claude Code, CLI tooling) don't send an Origin header — those are
+# allowed through. Browser clients must match one of these exactly.
+_ALLOWED_ORIGINS: frozenset[str] = frozenset({
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "null",
+})
+
+
+def _origin_allowed(origin: str | None) -> bool:
+    if not origin:
+        return True
+    try:
+        scheme, rest = origin.split("://", 1)
+        host = rest.split(":", 1)[0].split("/", 1)[0]
+        return f"{scheme}://{host}" in _ALLOWED_ORIGINS or origin == "null"
+    except ValueError:
+        return False
+
 
 @dataclass
 class WSEvent:
@@ -103,6 +133,18 @@ class WebSocketServer:
             log.warning("websockets not installed — WebSocket server disabled. pip install websockets")
             return
 
+        async def _process_request(connection, request):
+            # websockets >= 14 passes (connection, request). Reject bad Origins
+            # during the HTTP handshake before upgrading to a websocket.
+            try:
+                origin = request.headers.get("Origin")
+            except Exception:
+                origin = None
+            if not _origin_allowed(origin):
+                log.warning("WS rejected: bad Origin=%r", origin)
+                return connection.respond(403, "forbidden origin\n")
+            return None
+
         try:
             self._server = await websockets.serve(
                 self._handler,
@@ -110,6 +152,8 @@ class WebSocketServer:
                 self._port,
                 ping_interval=30,
                 ping_timeout=10,
+                max_size=256 * 1024,  # cap inbound frame size
+                process_request=_process_request,
             )
             log.info("WebSocket server on ws://127.0.0.1:%d", self._port)
             await asyncio.Future()  # run forever
@@ -119,9 +163,17 @@ class WebSocketServer:
             pass
 
     async def _handler(self, ws) -> None:
+        # Extra defence in depth: reject any connection whose remote address
+        # isn't loopback. (websockets.serve binds to 127.0.0.1 already, but
+        # this protects against accidental regressions.)
+        remote = ws.remote_address
+        if remote and remote[0] not in ("127.0.0.1", "::1", "localhost"):
+            log.warning("WS rejected: non-loopback remote %s", remote)
+            await ws.close(code=1008, reason="non-loopback")
+            return
+
         async with self._lock:
             self._clients.add(ws)
-        remote = ws.remote_address
         log.info("WS client connected: %s (total: %d)", remote, len(self._clients))
 
         # Send welcome message
@@ -139,8 +191,13 @@ class WebSocketServer:
                     await ws.send(json.dumps({"type": "error", "message": "invalid JSON"}))
                     continue
 
+                msg_type = data.get("type")
+                if not isinstance(msg_type, str) or msg_type not in _ALLOWED_MESSAGE_TYPES:
+                    await ws.send(json.dumps({"type": "error", "message": "unsupported message type"}))
+                    continue
+
                 # Handle ping inline (no blocking)
-                if data.get("type") == "ping":
+                if msg_type == "ping":
                     await ws.send(json.dumps({"type": "pong", "clients": self.client_count}))
                     continue
 

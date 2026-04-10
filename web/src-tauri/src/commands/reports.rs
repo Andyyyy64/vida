@@ -15,6 +15,7 @@ fn row_to_report(row: &rusqlite::Row) -> rusqlite::Result<Report> {
 
 #[tauri::command]
 pub fn get_report(date: String, db: State<AppDb>) -> Result<Option<Report>, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     // The reports table may not exist yet

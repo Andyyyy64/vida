@@ -19,7 +19,10 @@ i18n
     },
     fallbackLng: 'ja',
     interpolation: {
-      escapeValue: false,
+      // Escape HTML in all interpolated values. Translations MUST NOT
+      // contain raw HTML rendered via dangerouslySetInnerHTML — render
+      // them as text nodes instead, which React escapes automatically.
+      escapeValue: true,
     },
     detection: {
       order: ['localStorage', 'navigator'],

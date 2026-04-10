@@ -100,6 +100,9 @@ class Database:
         )
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
+        # Busy timeout so concurrent writers wait instead of failing fast,
+        # and make sure a long-running query can't pin the lock forever.
+        self._conn.execute("PRAGMA busy_timeout=5000")
         self._conn.executescript(SCHEMA)
         self._migrate()
         self._init_vec(embedding_dimensions)
@@ -469,10 +472,33 @@ class Database:
 
     # --- Full-text search ---
 
+    _MAX_FTS_QUERY_LEN = 200
+
+    @classmethod
+    def _prepare_fts_query(cls, query: str) -> str | None:
+        """Normalize a user-supplied FTS5 query.
+
+        Returns ``None`` if the query is empty or obviously abusive (too
+        long, all whitespace). The returned value is always double-quoted
+        so that FTS5 treats it as a phrase — this avoids syntax errors on
+        operator-like characters and prevents attackers from constructing
+        pathological boolean expressions that hang the CPU.
+        """
+        if not query:
+            return None
+        query = query.strip()
+        if not query:
+            return None
+        if len(query) > cls._MAX_FTS_QUERY_LEN:
+            query = query[: cls._MAX_FTS_QUERY_LEN]
+        return '"' + query.replace('"', '""') + '"'
+
     def search_frames(self, query: str, limit: int = 20) -> list[Frame]:
         """Full-text search across frame descriptions, transcriptions, activities."""
-        # Wrap in double quotes to treat as phrase and avoid FTS5 syntax errors
-        safe_query = '"' + query.replace('"', '""') + '"'
+        safe_query = self._prepare_fts_query(query)
+        if safe_query is None:
+            return []
+        limit = max(1, min(int(limit), 200))
         try:
             rows = self._conn.execute(
                 "SELECT f.* FROM frames f "
@@ -482,13 +508,16 @@ class Database:
                 (safe_query, limit),
             ).fetchall()
         except sqlite3.OperationalError:
-            log.warning("FTS5 search failed for query: %s", query)
+            log.warning("FTS5 search failed for frames query")
             return []
         return [self._row_to_frame(r) for r in rows]
 
     def search_summaries(self, query: str, limit: int = 20) -> list[Summary]:
         """Full-text search across summaries."""
-        safe_query = '"' + query.replace('"', '""') + '"'
+        safe_query = self._prepare_fts_query(query)
+        if safe_query is None:
+            return []
+        limit = max(1, min(int(limit), 200))
         try:
             rows = self._conn.execute(
                 "SELECT s.* FROM summaries s "
@@ -498,7 +527,7 @@ class Database:
                 (safe_query, limit),
             ).fetchall()
         except sqlite3.OperationalError:
-            log.warning("FTS5 search failed for query: %s", query)
+            log.warning("FTS5 search failed for summaries query")
             return []
         return [self._row_to_summary(r) for r in rows]
 

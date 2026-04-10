@@ -22,6 +22,7 @@ fn row_to_frame(row: &rusqlite::Row) -> rusqlite::Result<Frame> {
 
 #[tauri::command]
 pub fn get_frames(date: String, db: State<AppDb>) -> Result<Vec<Frame>, String> {
+    crate::commands::validate::validate_date(&date)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let start = format!("{date}T00:00:00");
     let end = format!("{date}T23:59:59");

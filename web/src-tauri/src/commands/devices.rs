@@ -20,10 +20,38 @@ pub async fn get_devices(db: State<'_, AppDb>) -> Result<serde_json::Value, Stri
     let daemon_src = &db.daemon_src;
     let script = daemon_src.join("daemon").join("devices.py");
 
+    // Canonicalize both the script and the daemon root so symlinks can't
+    // redirect execution to an attacker-controlled file. Refuse to run
+    // anything outside the bundled daemon directory.
+    let canon_script = match std::fs::canonicalize(&script) {
+        Ok(p) => p,
+        Err(_) => {
+            return Ok(serde_json::json!({
+                "cameras": [], "audio": [],
+                "error": "devices.py not found"
+            }));
+        }
+    };
+    let canon_daemon = match std::fs::canonicalize(daemon_src) {
+        Ok(p) => p,
+        Err(_) => {
+            return Ok(serde_json::json!({
+                "cameras": [], "audio": [],
+                "error": "daemon dir not found"
+            }));
+        }
+    };
+    if !canon_script.starts_with(&canon_daemon) || !canon_script.is_file() {
+        return Ok(serde_json::json!({
+            "cameras": [], "audio": [],
+            "error": "devices.py outside daemon dir"
+        }));
+    }
+
     let mut cmd = Command::new(&python);
-    cmd.arg(&script)
-        .current_dir(daemon_src)
-        .env("PYTHONPATH", daemon_src);
+    cmd.arg(&canon_script)
+        .current_dir(&canon_daemon)
+        .env("PYTHONPATH", &canon_daemon);
 
     crate::hide_window(&mut cmd);
 

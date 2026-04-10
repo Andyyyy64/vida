@@ -415,7 +415,7 @@ export function Settings({ onClose }: Props) {
                   </div>
                 );
               })}
-              <p className="settings-hint-block" dangerouslySetInnerHTML={{ __html: t('settings.apiKeys.hint') }} />
+              <p className="settings-hint-block">{t('settings.apiKeys.hint')}</p>
             </section>
 
           </fieldset>

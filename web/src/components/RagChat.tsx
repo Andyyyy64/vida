@@ -1,16 +1,44 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { api } from '../lib/api';
 
-// Configure marked for safe, compact output
+// Configure marked for safe, compact output.
+// LLM output is UNTRUSTED — any HTML the model returns must be stripped of
+// scripts, event handlers, and dangerous URIs before it reaches the DOM.
 marked.setOptions({
   breaks: true,
   gfm: true,
 });
 
+// Tags/attrs that survive sanitization. Deliberately minimal: formatting,
+// code, lists, tables, and safe inline links. No iframes, no forms, no
+// event handlers, no scripts.
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    'a', 'b', 'blockquote', 'br', 'code', 'del', 'em', 'h1', 'h2', 'h3',
+    'h4', 'h5', 'h6', 'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 's',
+    'span', 'strong', 'sub', 'sup', 'table', 'tbody', 'td', 'th', 'thead',
+    'tr', 'u', 'ul',
+  ],
+  ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+  FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick', 'onmouseover'],
+};
+
+// Force any anchor tags to open safely and never leak referrer.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
 function renderMarkdown(text: string): string {
-  return marked.parse(text, { async: false }) as string;
+  const rawHtml = marked.parse(text, { async: false }) as string;
+  return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
 }
 
 interface Message {
