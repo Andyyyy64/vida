@@ -110,6 +110,7 @@ The desktop app opens automatically with the timeline. Alternatively, download a
 - [IPC Commands](#ipc-commands)
 - [Database Schema](#database-schema)
 - [Tech Stack](#tech-stack)
+- [Security](#security)
 
 ## Vision
 
@@ -458,3 +459,16 @@ Daily user memos: date (primary key), content, updated_at. Editable only for tod
 - **Desktop**: Tauri v2 / Rust / rusqlite / WebView2 (Windows) / WebKitGTK (Linux) / WKWebView (macOS)
 - **Frontend**: React 19 / TypeScript / Vite 6
 - **Infra**: Docker Compose / WSL2
+
+## Security
+
+vida is a **local-only** system. Captured data stays on your machine; outbound traffic is limited to the configured LLM provider (optional) and allowlisted notification webhooks.
+
+- **Loopback-only servers.** The daemon binds MJPEG (3002), RAG (3003), and WebSocket (3004) to `127.0.0.1` and rejects non-loopback remotes, bad `Host` headers (DNS-rebinding defense), and untrusted origins.
+- **Hardened Tauri layer.** Every IPC command that takes a date, path, or scale runs through shared validators; file reads are confined to `data_dir` via a `safe_join` helper; Python binary discovery canonicalizes under the repo root; `assetProtocol` scope is registered dynamically at runtime only.
+- **Hardened webview.** CSP pins `img/media/connect` to the specific loopback ports; `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`. RAG markdown output is sanitized with DOMPurify.
+- **Prompt-injection mitigations.** Untrusted strings (window titles, transcription, chat) are JSON-escaped in the analyzer prompt, and the system note tells the model that captured data is not instructions.
+- **Secrets hygiene.** API keys live in the `settings` table of `life.db`; on POSIX the daemon chmods `data/` to `700` and DB files to `600`, and LLM error messages are scrubbed of API keys before being broadcast over the WebSocket.
+- **End-to-end tests.** Network-level invariants (Host/Origin/body-size/query-length) are covered by `tests/e2e/` booting real daemon servers on loopback; frontend sanitization and UI flows are covered by Playwright in `web/e2e/`.
+
+For the full hardening inventory, reporting instructions, and user best practices, see [SECURITY.md](SECURITY.md).
