@@ -107,7 +107,8 @@ class ActivityManager:
         # Strip parenthetical suffixes that LLMs sometimes append
         # e.g. "アイドル(idle)" → "アイドル", "集中作業(focus)" → "集中作業"
         import re
-        m = re.match(r'^(.+?)\s*[（(]([a-zA-Z]+)[)）]$', cleaned)
+
+        m = re.match(r"^(.+?)\s*[（(]([a-zA-Z]+)[)）]$", cleaned)
         if m:
             cleaned = m.group(1).strip()
             suffix = m.group(2).lower()

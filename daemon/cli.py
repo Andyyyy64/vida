@@ -245,7 +245,9 @@ def look(ctx):
     console.print("[dim]Analyzing...[/dim]")
 
     if config.llm.provider == "external":
-        console.print("[yellow]'look' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]")
+        console.print(
+            "[yellow]'look' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]"
+        )
         return
 
     provider = create_provider(
@@ -442,7 +444,9 @@ def report(ctx, target_date: str | None):
         return
 
     if config.llm.provider == "external":
-        console.print("[yellow]'report' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]")
+        console.print(
+            "[yellow]'report' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]"
+        )
         return
 
     provider = create_provider(
@@ -543,7 +547,9 @@ def knowledge(ctx, regen: bool):
 
     if regen:
         if config.llm.provider == "external":
-            console.print("[yellow]'knowledge --regen' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]")
+            console.print(
+                "[yellow]'knowledge --regen' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]"
+            )
             db.close()
             return
 
@@ -875,6 +881,7 @@ def _parse_date(s: str) -> date:
 
 # ─── JSON data helpers ───────────────────────────────────────────────────────
 
+
 def _frame_to_dict(f) -> dict:
     """Convert a Frame dataclass to a JSON-serializable dict."""
     return {
@@ -906,6 +913,7 @@ def _summary_to_dict(s) -> dict:
 
 # ─── Phase 1-3: Data read commands ──────────────────────────────────────────
 
+
 @cli.command("frames-list")
 @click.argument("target_date", required=False)
 @click.option("--limit", default=100, help="Max frames to return")
@@ -931,11 +939,16 @@ def frames_list(ctx, target_date: str | None, limit: int, as_json: bool):
     if limit and len(frames) > limit:
         frames = frames[-limit:]
 
-    click.echo(json_mod.dumps({
-        "date": d.isoformat(),
-        "count": len(frames),
-        "frames": [_frame_to_dict(f) for f in frames],
-    }, ensure_ascii=False))
+    click.echo(
+        json_mod.dumps(
+            {
+                "date": d.isoformat(),
+                "count": len(frames),
+                "frames": [_frame_to_dict(f) for f in frames],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @cli.command("frames-get")
@@ -993,11 +1006,16 @@ def frames_pending(ctx, limit: int):
     frames = db.get_pending_frames(limit=limit)
     db.close()
 
-    click.echo(json_mod.dumps({
-        "count": len(frames),
-        "data_dir": str(config.data_dir.resolve()),
-        "frames": [_frame_to_dict(f) for f in frames],
-    }, ensure_ascii=False))
+    click.echo(
+        json_mod.dumps(
+            {
+                "count": len(frames),
+                "data_dir": str(config.data_dir.resolve()),
+                "frames": [_frame_to_dict(f) for f in frames],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @cli.command("summary-list")
@@ -1021,12 +1039,17 @@ def summary_list(ctx, target_date: str | None, scale: str | None):
     sums = db.get_summaries_for_date(d, scale)
     db.close()
 
-    click.echo(json_mod.dumps({
-        "date": d.isoformat(),
-        "scale_filter": scale,
-        "count": len(sums),
-        "summaries": [_summary_to_dict(s) for s in sums],
-    }, ensure_ascii=False))
+    click.echo(
+        json_mod.dumps(
+            {
+                "date": d.isoformat(),
+                "scale_filter": scale,
+                "count": len(sums),
+                "summaries": [_summary_to_dict(s) for s in sums],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @cli.command("activity-stats")
@@ -1048,11 +1071,16 @@ def activity_stats_cmd(ctx, days: int):
     mappings = db.get_all_activity_mappings()
     db.close()
 
-    click.echo(json_mod.dumps({
-        "days": days,
-        "stats": stats,
-        "mappings": mappings,
-    }, ensure_ascii=False))
+    click.echo(
+        json_mod.dumps(
+            {
+                "days": days,
+                "stats": stats,
+                "mappings": mappings,
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @cli.command("search")
@@ -1130,6 +1158,7 @@ def status_json(ctx):
 
 # ─── Phase 1-4: Data write commands ─────────────────────────────────────────
 
+
 @cli.command("frames-update")
 @click.argument("frame_id", type=int)
 @click.option("--analysis", "description", default=None, help="Analysis description")
@@ -1165,12 +1194,17 @@ def frames_update(ctx, frame_id: int, description: str | None, activity: str | N
     db.update_frame_analysis(frame_id, desc, act)
     db.close()
 
-    click.echo(json_mod.dumps({
-        "ok": True,
-        "frame_id": frame_id,
-        "description": desc[:200],
-        "activity": act,
-    }, ensure_ascii=False))
+    click.echo(
+        json_mod.dumps(
+            {
+                "ok": True,
+                "frame_id": frame_id,
+                "description": desc[:200],
+                "activity": act,
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @cli.command("summary-create")
@@ -1200,12 +1234,17 @@ def summary_create(ctx, scale: str, content: str, frame_count: int):
     summary.id = db.insert_summary(summary)
     db.close()
 
-    click.echo(json_mod.dumps({
-        "ok": True,
-        "summary_id": summary.id,
-        "scale": scale,
-        "content": content[:200],
-    }, ensure_ascii=False))
+    click.echo(
+        json_mod.dumps(
+            {
+                "ok": True,
+                "summary_id": summary.id,
+                "scale": scale,
+                "content": content[:200],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @cli.command("memo-set")
@@ -1229,14 +1268,20 @@ def memo_set(ctx, target_date: str | None, content: str):
     db.upsert_memo(d, content)
     db.close()
 
-    click.echo(json_mod.dumps({
-        "ok": True,
-        "date": d.isoformat(),
-        "content": content[:200],
-    }, ensure_ascii=False))
+    click.echo(
+        json_mod.dumps(
+            {
+                "ok": True,
+                "date": d.isoformat(),
+                "content": content[:200],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 # ─── Phase 2-2: connect --stream ─────────────────────────────────────────────
+
 
 @cli.command("connect")
 @click.option("--port", default=3004, help="WebSocket server port")
@@ -1272,9 +1317,13 @@ def connect(ctx, port: int, stream: bool):
                     sys.stdout.write(msg + "\n")
                     sys.stdout.flush()
         except ConnectionRefusedError:
-            click.echo(json_mod.dumps({
-                "error": f"Cannot connect to daemon WebSocket at {uri}. Is the daemon running?",
-            }))
+            click.echo(
+                json_mod.dumps(
+                    {
+                        "error": f"Cannot connect to daemon WebSocket at {uri}. Is the daemon running?",
+                    }
+                )
+            )
         except KeyboardInterrupt:
             pass
 
@@ -1282,6 +1331,7 @@ def connect(ctx, port: int, stream: bool):
 
 
 # ─── Phase 2-3: watch ────────────────────────────────────────────────────────
+
 
 @cli.command("watch")
 @click.option("--port", default=3004, help="WebSocket server port")
@@ -1325,8 +1375,12 @@ def watch(ctx, port: int, event_type: str, timeout: int):
                 except TimeoutError:
                     click.echo(json_mod.dumps({"error": "timeout", "waited_seconds": timeout}))
         except ConnectionRefusedError:
-            click.echo(json_mod.dumps({
-                "error": f"Cannot connect to daemon WebSocket at {uri}. Is the daemon running?",
-            }))
+            click.echo(
+                json_mod.dumps(
+                    {
+                        "error": f"Cannot connect to daemon WebSocket at {uri}. Is the daemon running?",
+                    }
+                )
+            )
 
     asyncio.run(_wait_for_event())

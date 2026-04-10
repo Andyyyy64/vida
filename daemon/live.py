@@ -10,21 +10,25 @@ log = logging.getLogger(__name__)
 
 # Allowed Host headers — prevents DNS rebinding attacks against localhost services.
 # Any Host that doesn't match one of these is rejected.
-_ALLOWED_HOSTS: frozenset[str] = frozenset({
-    "localhost",
-    "127.0.0.1",
-    "[::1]",
-    "::1",
-})
+_ALLOWED_HOSTS: frozenset[str] = frozenset(
+    {
+        "localhost",
+        "127.0.0.1",
+        "[::1]",
+        "::1",
+    }
+)
 # Allowed Origin values for browser requests (Tauri WebView + dev server).
 # Empty/missing Origin is allowed (native callers like <img src> don't set it).
-_ALLOWED_ORIGINS: frozenset[str] = frozenset({
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://tauri.localhost",
-    "https://tauri.localhost",
-    "null",
-})
+_ALLOWED_ORIGINS: frozenset[str] = frozenset(
+    {
+        "http://localhost",
+        "http://127.0.0.1",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "null",
+    }
+)
 
 
 def _host_allowed(host_header: str | None) -> bool:

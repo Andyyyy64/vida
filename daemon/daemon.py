@@ -35,11 +35,11 @@ from daemon.live import LiveServer
 from daemon.llm import create_provider
 from daemon.notify import send_notification
 from daemon.rag_server import RagServer
-from daemon.ws_server import WebSocketServer, WSEvent
 from daemon.report import ReportGenerator
 from daemon.retention import cleanup_old_data
 from daemon.storage.database import Database
 from daemon.storage.models import SCALES, Event, Frame, SceneType
+from daemon.ws_server import WebSocketServer, WSEvent
 
 CHANGE_CHECK_INTERVAL = 1  # seconds between change checks
 
@@ -53,7 +53,7 @@ _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(api[_-]?key['\"]?\s*[:=]\s*['\"]?)[A-Za-z0-9_\-]{10,}", re.IGNORECASE),
     re.compile(r"Bearer\s+[A-Za-z0-9._\-]+", re.IGNORECASE),
     re.compile(r"sk-[A-Za-z0-9_\-]{20,}"),  # OpenAI-style
-    re.compile(r"AIza[0-9A-Za-z_\-]{35}"),   # Google API key format
+    re.compile(r"AIza[0-9A-Za-z_\-]{35}"),  # Google API key format
 )
 
 
@@ -166,10 +166,8 @@ class Daemon:
         # (frames, screens, audio, status.json, pid) are owner-only. Other
         # local users should never be able to read captured media or the
         # SQLite database.
-        try:
+        with contextlib.suppress(Exception):
             os.umask(0o077)
-        except Exception:
-            pass
         self._secure_data_dir()
         self._write_pid()
         signal.signal(signal.SIGTERM, self._handle_signal)
@@ -417,11 +415,16 @@ class Daemon:
                             description=f"{prev_state.value} → {new_state.value}",
                         )
                     )
-                    self._ws.broadcast(WSEvent("presence_change", {
-                        "from": prev_state.value,
-                        "to": new_state.value,
-                        "timestamp": now.isoformat(),
-                    }))
+                    self._ws.broadcast(
+                        WSEvent(
+                            "presence_change",
+                            {
+                                "from": prev_state.value,
+                                "to": new_state.value,
+                                "timestamp": now.isoformat(),
+                            },
+                        )
+                    )
 
         # Collect change-detected extra captures from previous interval
         with self._capture_lock:
@@ -452,15 +455,20 @@ class Daemon:
         frame.id = frame_id
 
         # Broadcast new frame via WebSocket
-        self._ws.broadcast(WSEvent("new_frame", {
-            "frame_id": frame_id,
-            "timestamp": now.isoformat(),
-            "path": rel_path,
-            "screen_path": screen_path,
-            "audio_path": audio_path,
-            "has_transcription": bool(transcription),
-            "foreground_window": foreground_window,
-        }))
+        self._ws.broadcast(
+            WSEvent(
+                "new_frame",
+                {
+                    "frame_id": frame_id,
+                    "timestamp": now.isoformat(),
+                    "path": rel_path,
+                    "screen_path": screen_path,
+                    "audio_path": audio_path,
+                    "has_transcription": bool(transcription),
+                    "foreground_window": foreground_window,
+                },
+            )
+        )
 
         # Scene change event (requires camera)
         if raw_frame is not None:
@@ -510,17 +518,22 @@ class Daemon:
         if self._config.llm.provider == "external":
             # External mode: skip LLM, broadcast analysis request via WebSocket
             image_paths = [p for p in [rel_path, screen_path, *extra_screens, *extra_cams] if p]
-            self._ws.broadcast(WSEvent("analyze_request", {
-                "frame_id": frame_id,
-                "timestamp": now.isoformat(),
-                "image_paths": image_paths,
-                "data_dir": str(self._config.data_dir.resolve()),
-                "transcription": transcription,
-                "foreground_window": foreground_window,
-                "idle_seconds": idle_seconds,
-                "has_face": has_face,
-                "pose_data": pose_data,
-            }))
+            self._ws.broadcast(
+                WSEvent(
+                    "analyze_request",
+                    {
+                        "frame_id": frame_id,
+                        "timestamp": now.isoformat(),
+                        "image_paths": image_paths,
+                        "data_dir": str(self._config.data_dir.resolve()),
+                        "transcription": transcription,
+                        "foreground_window": foreground_window,
+                        "idle_seconds": idle_seconds,
+                        "has_face": has_face,
+                        "pose_data": pose_data,
+                    },
+                )
+            )
             description, activity = "", ""
         else:
             all_extra_screens = extra_screens or None
@@ -555,20 +568,30 @@ class Daemon:
                     # Scrub secrets and truncate before sending to any client.
                     scrubbed = _scrub_secrets(llm_error_msg) if llm_error_msg else ""
                     error_display = scrubbed[:200] if scrubbed else "LLM analysis failed"
-                self._ws.broadcast(WSEvent("llm_error", {
-                    "message": error_display,
-                    "consecutive_failures": self._consecutive_llm_failures,
-                    "provider": self._config.llm.provider,
-                }))
+                self._ws.broadcast(
+                    WSEvent(
+                        "llm_error",
+                        {
+                            "message": error_display,
+                            "consecutive_failures": self._consecutive_llm_failures,
+                            "provider": self._config.llm.provider,
+                        },
+                    )
+                )
 
         if description or activity:
             self._db.update_frame_analysis(frame_id, description, activity)
             log.info("Analysis: [%s] %s", activity, description[:80])
-            self._ws.broadcast(WSEvent("frame_analyzed", {
-                "frame_id": frame_id,
-                "activity": activity,
-                "description": description[:200],
-            }))
+            self._ws.broadcast(
+                WSEvent(
+                    "frame_analyzed",
+                    {
+                        "frame_id": frame_id,
+                        "activity": activity,
+                        "description": description[:200],
+                    },
+                )
+            )
 
         # Multimodal embedding (after LLM analysis so description/activity are available)
         # Skip in external mode — embedding runs when Claude Code sends analysis via WS
@@ -722,13 +745,18 @@ class Daemon:
             if summary:
                 self._last_summary[scale] = now
                 log.info("Summary [%s]: %s", scale, summary.content[:80])
-                self._ws.broadcast(WSEvent("new_summary", {
-                    "summary_id": summary.id,
-                    "scale": scale,
-                    "timestamp": now.isoformat(),
-                    "content": summary.content[:200],
-                    "frame_count": summary.frame_count,
-                }))
+                self._ws.broadcast(
+                    WSEvent(
+                        "new_summary",
+                        {
+                            "summary_id": summary.id,
+                            "scale": scale,
+                            "timestamp": now.isoformat(),
+                            "content": summary.content[:200],
+                            "frame_count": summary.frame_count,
+                        },
+                    )
+                )
 
     def _check_knowledge(self, now: datetime):
         """Generate knowledge profile if interval has elapsed."""
@@ -813,12 +841,17 @@ class Daemon:
                     activity, _ = self._activity_mgr.normalize_and_register(activity, meta_category)
                 self._db.update_frame_analysis(frame_id, description, activity)
                 log.info("External analysis for frame %d: [%s] %s", frame_id, activity, description[:80])
-                self._ws.broadcast(WSEvent("frame_analyzed", {
-                    "frame_id": frame_id,
-                    "activity": activity,
-                    "description": description[:200],
-                    "source": "external",
-                }))
+                self._ws.broadcast(
+                    WSEvent(
+                        "frame_analyzed",
+                        {
+                            "frame_id": frame_id,
+                            "activity": activity,
+                            "description": description[:200],
+                            "source": "external",
+                        },
+                    )
+                )
 
         elif msg_type == "create_summary":
             # Claude Code sending a summary
@@ -827,6 +860,7 @@ class Daemon:
             frame_count = data.get("frame_count", 0)
             if scale and content and scale in SCALES:
                 from daemon.storage.models import Summary
+
                 summary = Summary(
                     timestamp=datetime.now(),
                     scale=scale,
@@ -835,12 +869,17 @@ class Daemon:
                 )
                 summary.id = self._db.insert_summary(summary)
                 log.info("External summary [%s]: %s", scale, content[:80])
-                self._ws.broadcast(WSEvent("new_summary", {
-                    "summary_id": summary.id,
-                    "scale": scale,
-                    "content": content[:200],
-                    "source": "external",
-                }))
+                self._ws.broadcast(
+                    WSEvent(
+                        "new_summary",
+                        {
+                            "summary_id": summary.id,
+                            "scale": scale,
+                            "content": content[:200],
+                            "source": "external",
+                        },
+                    )
+                )
 
     def _handle_signal(self, signum, _frame):
         log.info("Received signal %d, stopping...", signum)

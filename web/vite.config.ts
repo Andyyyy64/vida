@@ -17,5 +17,6 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     root: '.',
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**', 'test-results/**', 'playwright-report/**'],
   },
 });

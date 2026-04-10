@@ -9,32 +9,38 @@ Default port: 3004
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 # Allowed message types for inbound messages. Anything else is rejected.
 # Keep this narrow — adding a new type means exposing a new DB write path.
-_ALLOWED_MESSAGE_TYPES: frozenset[str] = frozenset({
-    "ping",
-    "frame_analysis",
-    "create_summary",
-})
+_ALLOWED_MESSAGE_TYPES: frozenset[str] = frozenset(
+    {
+        "ping",
+        "frame_analysis",
+        "create_summary",
+    }
+)
 
 # Allowed Origin values for browser-based clients. Non-browser websocket
 # clients (Claude Code, CLI tooling) don't send an Origin header — those are
 # allowed through. Browser clients must match one of these exactly.
-_ALLOWED_ORIGINS: frozenset[str] = frozenset({
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://tauri.localhost",
-    "https://tauri.localhost",
-    "null",
-})
+_ALLOWED_ORIGINS: frozenset[str] = frozenset(
+    {
+        "http://localhost",
+        "http://127.0.0.1",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "null",
+    }
+)
 
 
 def _origin_allowed(origin: str | None) -> bool:
@@ -99,10 +105,8 @@ class WebSocketServer:
         ``RuntimeError: Event loop stopped before Future completed``.
         """
         if self._loop and self._server:
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._loop.call_soon_threadsafe(self._server.close)
-            except RuntimeError:
-                pass  # loop already closed
         if self._thread:
             self._thread.join(timeout=3)
 
@@ -187,11 +191,15 @@ class WebSocketServer:
         log.info("WS client connected: %s (total: %d)", remote, len(self._clients))
 
         # Send welcome message
-        await ws.send(json.dumps({
-            "type": "connected",
-            "clients": len(self._clients),
-            "server": "vida-daemon",
-        }))
+        await ws.send(
+            json.dumps(
+                {
+                    "type": "connected",
+                    "clients": len(self._clients),
+                    "server": "vida-daemon",
+                }
+            )
+        )
 
         try:
             async for raw in ws:
@@ -214,9 +222,7 @@ class WebSocketServer:
                 # Run handler in thread executor to avoid blocking the event loop
                 if self.on_message:
                     try:
-                        await asyncio.get_event_loop().run_in_executor(
-                            None, self.on_message, data, ws
-                        )
+                        await asyncio.get_event_loop().run_in_executor(None, self.on_message, data, ws)
                     except Exception:
                         log.exception("Error in on_message handler")
                         await ws.send(json.dumps({"type": "error", "message": "handler error"}))
