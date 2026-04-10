@@ -23,6 +23,7 @@ dependencies = [
 dev = [
     "pytest>=8",
     "pytest-cov>=6",
+    "pytest-asyncio>=0.23",
     "pip-audit>=2",
     "ruff>=0.8",
 ]
@@ -31,6 +32,7 @@ dev = [
 dev = [
     "pytest>=8",
     "pytest-cov>=6",
+    "pytest-asyncio>=0.23",
     "pip-audit>=2",
     "ruff>=0.8",
 ]
@@ -56,3 +58,7 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "e2e: network-level integration tests that boot the real daemon servers on loopback ports",
+]
+asyncio_mode = "auto"

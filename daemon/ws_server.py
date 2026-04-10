@@ -89,14 +89,20 @@ class WebSocketServer:
         self._thread.start()
 
     def stop(self) -> None:
-        """Stop the server and close all connections."""
-        if self._loop and self._server:
-            async def _shutdown():
-                self._server.close()
-                await self._server.wait_closed()
-                self._loop.stop()
+        """Stop the server and close all connections.
 
-            asyncio.run_coroutine_threadsafe(_shutdown(), self._loop)
+        We just ask the running server to close on its own event loop.
+        ``_serve()`` is awaiting ``server.wait_closed()``; once that
+        future resolves the ``run_until_complete`` call returns cleanly
+        and the background thread exits. Calling ``loop.stop()`` directly
+        used to race with the pending Future and raised
+        ``RuntimeError: Event loop stopped before Future completed``.
+        """
+        if self._loop and self._server:
+            try:
+                self._loop.call_soon_threadsafe(self._server.close)
+            except RuntimeError:
+                pass  # loop already closed
         if self._thread:
             self._thread.join(timeout=3)
 
@@ -146,7 +152,10 @@ class WebSocketServer:
             return None
 
         try:
-            self._server = await websockets.serve(
+            # Use the async context manager so shutdown can unwind
+            # through `wait_closed()` without needing to stop the loop
+            # from another thread.
+            async with websockets.serve(
                 self._handler,
                 "127.0.0.1",
                 self._port,
@@ -154,9 +163,10 @@ class WebSocketServer:
                 ping_timeout=10,
                 max_size=256 * 1024,  # cap inbound frame size
                 process_request=_process_request,
-            )
-            log.info("WebSocket server on ws://127.0.0.1:%d", self._port)
-            await asyncio.Future()  # run forever
+            ) as server:
+                self._server = server
+                log.info("WebSocket server on ws://127.0.0.1:%d", self._port)
+                await server.wait_closed()
         except OSError as e:
             log.error("WebSocket server failed to start on port %d: %s", self._port, e)
         except asyncio.CancelledError:
