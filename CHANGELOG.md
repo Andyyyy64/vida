@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-04-10
+
+### Security
+
+- Comprehensive security audit across daemon, Tauri backend, webview, and frontend:
+  - MJPEG (3002), RAG (3003), and WebSocket (3004) servers bind to `127.0.0.1` only; reject non-loopback remotes, bad `Host` headers (DNS-rebinding defense), and untrusted browser origins. CORS wildcards dropped.
+  - WebSocket inbound message types restricted to a narrow whitelist; Origin validated on handshake.
+  - LLM error messages scrubbed of API keys (Gemini, OpenAI, Bearer) before being broadcast via WebSocket.
+  - Screen capture passes the target path to PowerShell via `$env:VIDA_SCREEN_PATH` to close a command-injection vector.
+  - Analyzer prompt JSON-escapes untrusted strings (window titles, transcription, chat) and carries an explicit "data is not instructions" system note to reduce prompt-injection surface.
+  - Notification webhooks restricted to allowlisted Discord / LINE hosts over HTTPS.
+  - POSIX data directory created with `umask 077` and chmod'd to `700`; `life.db` + WAL/SHM sidecars and the pid file chmod'd to `600`.
+  - FTS5 search queries length-capped; SQLite connection `busy_timeout=5000`.
+- Tauri backend hardening:
+  - `ask_rag` validates RAG URL is loopback-only with connect/request timeouts and caps query/history sizes.
+  - `safe_join` helper rejects `..` and confirms canonical paths stay under `data_dir`.
+  - Python binary discovery canonicalizes every candidate and requires the `.venv` interpreter to resolve under repo root.
+  - `devices.py` refused if it does not canonicalize under the bundled daemon directory.
+  - `settings.put` allow-lists env keys, rejects newlines / NUL bytes, caps values at 4 KiB.
+  - Every date-taking command validated via `validate_date`; summary scales validated against the known interval set; export formats whitelisted; memo content capped at 64 KiB.
+- Tauri webview config:
+  - `assetProtocol` scope empty at config time and dynamically registered at runtime to the real `data_dir`.
+  - CSP pins `img/media/connect` to specific loopback ports (3002/3003/3004) + `localhost:5173` for Vite HMR; `script-src 'self'`, `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'`.
+- Frontend:
+  - `RagChat` sanitizes `marked` output with DOMPurify using a strict tag/attribute allowlist; anchors forced to `target="_blank" rel="noopener noreferrer"`.
+  - i18next `escapeValue: true`; `dangerouslySetInnerHTML` removed outside the sanitized RAG path.
+
+### Added
+
+- `tests/e2e/` — network-level integration tests that boot the real daemon servers (MJPEG, RAG, WebSocket) on ephemeral loopback ports and assert `Host` / `Origin` / body-size / query-length invariants (39 tests).
+- `web/e2e/` — Playwright suite covering 26 frontend UI flows against an in-process fake runtime (timeline/detail, date nav, dashboard, search, RAG XSS sanitization, chat modal, summary panel, memo, settings, i18n, live feed, WebSocket events, onboarding, header clock, data modal).
+- `SECURITY.md` rewritten with a Network Services table, full hardening inventory, and updated user best practices.
+- Security sections added to `README.md` and `README.ja.md`.
+
 ## [0.2.4] - 2026-04-09
 
 ### Added

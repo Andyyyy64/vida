@@ -1,6 +1,6 @@
 [project]
 name = "vida"
-version = "0.2.4"
+version = "0.2.5"
 description = "vida — Personal AI life observer and analyzer"
 authors = [
     { name = "andy", email = "takuyarossi77@gmail.com" }
