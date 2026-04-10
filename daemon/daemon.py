@@ -344,7 +344,119 @@ class Daemon:
             self._cam_reconnect_cooldown = time.time() + 30
             return False
 
+    def _check_config_reload(self) -> None:
+        """Re-read settings from DB and hot-swap provider-dependent internals
+        if the llm.provider changed. Called at the top of each tick so the
+        swap happens at a natural boundary (no in-flight analyze call can be
+        torn down mid-request).
+
+        Only the LLM stack is reloaded — capture/presence/embedding settings
+        still require a daemon restart. Hot-swap surface is intentionally
+        narrow to keep races out of the control flow.
+        """
+        try:
+            new_cfg = Config.load_from_db(self._config.db_path)
+        except Exception:
+            log.exception("Failed to reload config from DB")
+            return
+
+        old_provider = self._config.llm.provider
+        new_provider = new_cfg.llm.provider
+        old_gemini_model = self._config.llm.gemini_model
+        old_claude_model = self._config.llm.claude_model
+        if (
+            new_provider == old_provider
+            and new_cfg.llm.gemini_model == old_gemini_model
+            and new_cfg.llm.claude_model == old_claude_model
+        ):
+            return
+
+        log.info(
+            "Hot-reloading LLM config: provider=%s→%s gemini_model=%s→%s claude_model=%s→%s",
+            old_provider,
+            new_provider,
+            old_gemini_model,
+            new_cfg.llm.gemini_model,
+            old_claude_model,
+            new_cfg.llm.claude_model,
+        )
+
+        # Rebuild provider + dependent generators
+        if new_provider == "external":
+            provider = None
+        else:
+            try:
+                provider = create_provider(
+                    new_provider,
+                    claude_model=new_cfg.llm.claude_model,
+                    gemini_model=new_cfg.llm.gemini_model,
+                )
+            except Exception as exc:
+                log.exception("Failed to create new provider %s — keeping old config", new_provider)
+                self._ws.broadcast(
+                    WSEvent(
+                        "llm_error",
+                        {
+                            "message": _scrub_secrets(str(exc))[:200],
+                            "consecutive_failures": 0,
+                            "provider": new_provider,
+                        },
+                    )
+                )
+                return
+
+        # Swap the provider-dependent instances. Attribute writes are atomic
+        # under the GIL, and any mid-tick local references hold the old one
+        # until the current tick finishes.
+        if provider:
+            self._transcriber = Transcriber(
+                provider,
+                context_path=new_cfg.data_dir / "context.md",
+            )
+            self._frame_analyzer = FrameAnalyzer(provider, new_cfg.data_dir, self._db, self._activity_mgr)
+            self._summary_gen = SummaryGenerator(provider, self._db, new_cfg.data_dir)
+            self._report_gen = ReportGenerator(provider, self._db, new_cfg.data_dir, self._activity_mgr)
+            self._knowledge_gen = KnowledgeGenerator(provider, self._db, new_cfg.data_dir)
+        else:
+            self._transcriber = None
+            self._frame_analyzer = None
+            self._summary_gen = None
+            self._report_gen = None
+            self._knowledge_gen = None
+
+        # RAG server toggles with external mode (needs a provider to answer).
+        was_external = old_provider == "external"
+        is_external = new_provider == "external"
+        if was_external and not is_external:
+            self._rag_server = RagServer(new_cfg, port=3003)
+            try:
+                self._rag_server.start()
+            except Exception:
+                log.exception("Failed to start RAG server after reload")
+                self._rag_server = None
+        elif is_external and not was_external and self._rag_server:
+            try:
+                self._rag_server.stop()
+            except Exception:
+                log.exception("Failed to stop RAG server after reload")
+            self._rag_server = None
+
+        self._config = new_cfg
+        self._consecutive_llm_failures = 0
+
+        self._ws.broadcast(
+            WSEvent(
+                "config_reloaded",
+                {
+                    "llm_provider": new_provider,
+                    "gemini_model": new_cfg.llm.gemini_model,
+                    "claude_model": new_cfg.llm.claude_model,
+                },
+            )
+        )
+
     def _tick(self):
+        self._check_config_reload()
         now = datetime.now()
         self._frame_count += 1
 
