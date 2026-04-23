@@ -489,6 +489,8 @@ class Daemon:
 
     def _tick(self):
         self._check_config_reload()
+        if not self._has_camera:
+            self._try_reconnect_camera()
         now = datetime.now()
         self._frame_count += 1
 

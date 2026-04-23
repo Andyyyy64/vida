@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSCameraUsageDescription</key>
+  <string>vida uses the camera to capture periodic frames for local life logging and analysis.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>vida uses the microphone to record short audio snippets for local life logging and analysis.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>vida uses Apple Events to read the active window title through System Events for activity analysis.</string>
+</dict>
+</plist>

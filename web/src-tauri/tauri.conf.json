@@ -48,6 +48,9 @@
       "nsis": {
         "displayLanguageSelector": false
       }
+    },
+    "macOS": {
+      "infoPlist": "Info.plist"
     }
   }
 }

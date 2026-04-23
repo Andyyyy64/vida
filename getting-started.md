@@ -210,7 +210,11 @@ cd web && npm install && cd ..
 
 ### 5. macOS Privacy Permissions
 
-You can pre-grant permissions before first launch to avoid mid-run prompts. Go to **System Settings → Privacy & Security** and enable the following for your terminal app (Terminal, iTerm2, etc.):
+You can pre-grant permissions before first launch to avoid mid-run prompts.
+
+If you run `vida` from the terminal, go to **System Settings → Privacy & Security** and enable the following for your terminal app (Terminal, iTerm2, etc.).
+
+If you run the packaged desktop app, grant the same permissions to **vida** itself.
 
 | Permission | Used for |
 |---|---|
@@ -221,7 +225,10 @@ You can pre-grant permissions before first launch to avoid mid-run prompts. Go t
 
 > **Screen Recording on macOS Sequoia+**: Without this permission, `screencapture` produces a black image. Grant it explicitly even if the capture command doesn't prompt for it.
 
-After changing permissions, **restart your terminal** before running `life start`.
+After changing permissions, restart the affected app:
+
+- **CLI / terminal mode**: restart your terminal before running `life start`
+- **Desktop app**: quit and reopen `vida.app`
 
 ---
 
