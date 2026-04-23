@@ -36,6 +36,7 @@ export interface E2EState {
   search: SearchResults;
   rag: { response: string; sources: { type: string; timestamp: string; preview: string; distance: number }[] };
   settings: Record<string, unknown>;
+  providerValidation: { ok: boolean; code: string; detail?: string };
   devices: unknown;
   dataStats: unknown;
   liveFeed: { isLive: boolean; streamUrl: string | null; poseUrl: string | null; healthUrl: string | null };
@@ -78,6 +79,7 @@ function defaultState(): E2EState {
     search: { frames: [], summaries: [] },
     rag: { response: '', sources: [] },
     settings: {},
+    providerValidation: { ok: true, code: 'ready' },
     devices: { cameras: [], microphones: [] },
     dataStats: { total_frames: 0, total_events: 0, total_summaries: 0 },
     liveFeed: { isLive: false, streamUrl: null, poseUrl: null, healthUrl: null },
@@ -199,6 +201,7 @@ function createApi(): RuntimeApi {
         ensureWrites().settings.push(body);
         return body;
       },
+      validateProvider: async () => get('providerValidation'),
     },
     devices: {
       get: async () => get('devices'),

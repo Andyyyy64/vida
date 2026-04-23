@@ -1,6 +1,6 @@
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import type { Runtime } from './runtime';
-import type { Frame, Report, Memo } from './types';
+import type { Frame, Report, Memo, ProviderValidationRequest, ProviderValidationResult } from './types';
 
 let dataDir = '';
 
@@ -51,7 +51,11 @@ export async function createTauriRuntime(): Promise<Runtime> {
       status: () => invoke('get_status'),
       search: (q, from, to) => invoke('search_text', { q, from: from ?? null, to: to ?? null }),
       rag: { ask: (query, history = []) => invoke('ask_rag', { query, history }) },
-      settings: { get: () => invoke('get_settings'), put: (body) => invoke('put_settings', { body }) },
+      settings: {
+        get: () => invoke('get_settings'),
+        put: (body) => invoke('put_settings', { body }),
+        validateProvider: (body: ProviderValidationRequest) => invoke<ProviderValidationResult>('validate_provider', { body }),
+      },
       devices: { get: () => invoke('get_devices') },
       data: { stats: () => invoke('get_data_stats'), exportTable: (table, format = 'csv') => invoke('export_table', { table, format }) },
     },

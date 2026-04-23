@@ -234,6 +234,8 @@ pub fn run() {
             // settings
             commands::settings::get_settings,
             commands::settings::put_settings,
+            // provider validation
+            commands::provider_check::validate_provider,
             // context
             commands::context::get_context,
             commands::context::put_context,

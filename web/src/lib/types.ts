@@ -136,3 +136,17 @@ export interface RangeStats {
   activityTotals: Record<string, number>;
   metaTotals: Record<string, number>;
 }
+
+export interface ProviderValidationRequest {
+  provider: string;
+  gemini_model?: string;
+  claude_model?: string;
+  codex_model?: string;
+  gemini_api_key?: string;
+}
+
+export interface ProviderValidationResult {
+  ok: boolean;
+  code: string;
+  detail?: string;
+}

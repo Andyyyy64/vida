@@ -118,6 +118,7 @@ function createDemoSettings() {
       provider: 'gemini',
       gemini_model: 'gemini-3.1-flash-lite-preview',
       claude_model: 'haiku',
+      codex_model: 'gpt-5.4',
     },
     capture: {
       device: 0,
@@ -325,6 +326,7 @@ export function createDemoRuntime(): Runtime {
       settings: {
         get: async () => createDemoSettings(),
         put: async () => ({ ok: true }),
+        validateProvider: async () => ({ ok: true, code: 'ready' }),
       },
       devices: { get: async () => ({ cameras: [], audio: [] }) },
       data: {

@@ -5,12 +5,14 @@ import '@testing-library/jest-dom/vitest';
 const {
   mockSettingsGet,
   mockSettingsPut,
+  mockValidateProvider,
   mockDevicesGet,
   mockContextGet,
   mockContextPut,
 } = vi.hoisted(() => ({
   mockSettingsGet: vi.fn(),
   mockSettingsPut: vi.fn(),
+  mockValidateProvider: vi.fn(),
   mockDevicesGet: vi.fn(),
   mockContextGet: vi.fn(),
   mockContextPut: vi.fn(),
@@ -30,7 +32,7 @@ vi.mock('../lib/runtime', () => ({
 
 vi.mock('../lib/api', () => ({
   api: {
-    settings: { get: mockSettingsGet, put: mockSettingsPut },
+    settings: { get: mockSettingsGet, put: mockSettingsPut, validateProvider: mockValidateProvider },
     devices: { get: mockDevicesGet },
     context: { get: mockContextGet, put: mockContextPut },
   },
@@ -47,7 +49,7 @@ import '../i18n';
 
 function fullSettings() {
   return {
-    llm: { provider: 'gemini', gemini_model: 'gemini-3.1-flash-lite-preview', claude_model: 'haiku' },
+    llm: { provider: 'gemini', gemini_model: 'gemini-3.1-flash-lite-preview', claude_model: 'haiku', codex_model: 'gpt-5.4' },
     capture: { device: 0, interval_sec: 30, audio_device: '' },
     presence: { enabled: true, sleep_start_hour: 23, sleep_end_hour: 8 },
     chat: { enabled: false, discord_enabled: false, discord_poll_interval: 60, discord_backfill_months: 3 },
@@ -60,10 +62,12 @@ beforeEach(() => {
   localStorage.clear();
   mockSettingsGet.mockReset();
   mockSettingsPut.mockReset();
+  mockValidateProvider.mockReset();
   mockDevicesGet.mockReset();
   mockContextGet.mockReset();
   mockContextPut.mockReset();
   mockSettingsGet.mockResolvedValue(fullSettings());
+  mockValidateProvider.mockResolvedValue({ ok: true, code: 'ready' });
   mockDevicesGet.mockResolvedValue({ cameras: [], audio: [] });
   mockContextGet.mockResolvedValue({ content: '' });
 });

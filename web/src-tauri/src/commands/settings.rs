@@ -54,9 +54,10 @@ pub fn get_settings(db: State<AppDb>) -> Result<serde_json::Value, String> {
 
     Ok(serde_json::json!({
         "llm": {
-            "provider": s_str(&s, "llm.provider", "gemini"),
+            "provider": s_str(&s, "llm.provider", "claude"),
             "gemini_model": s_str(&s, "llm.gemini_model", "gemini-3.1-flash-lite-preview"),
             "claude_model": s_str(&s, "llm.claude_model", "haiku"),
+            "codex_model": s_str(&s, "llm.codex_model", "gpt-5.4"),
         },
         "capture": {
             "device": s_i64(&s, "capture.device", 0),
@@ -110,8 +111,8 @@ pub fn put_settings(
     };
 
     // Validate
-    let provider = body_str("llm", "provider", "llm.provider", "gemini");
-    if provider != "gemini" && provider != "claude" {
+    let provider = body_str("llm", "provider", "llm.provider", "claude");
+    if provider != "gemini" && provider != "claude" && provider != "codex" && provider != "external" {
         return Err("Invalid LLM provider".to_string());
     }
 
@@ -142,6 +143,7 @@ pub fn put_settings(
 
     let gemini_model = body_str("llm", "gemini_model", "llm.gemini_model", "gemini-3.1-flash-lite-preview");
     let claude_model = body_str("llm", "claude_model", "llm.claude_model", "haiku");
+    let codex_model = body_str("llm", "codex_model", "llm.codex_model", "gpt-5.4");
     let audio_device = body_str("capture", "audio_device", "capture.audio_device", "");
     let presence_enabled = body_bool("presence", "enabled", "presence.enabled", true);
     let chat_enabled = body_bool("chat", "enabled", "chat.enabled", false);
@@ -152,6 +154,7 @@ pub fn put_settings(
     entries.insert("llm.provider".to_string(), provider);
     entries.insert("llm.gemini_model".to_string(), gemini_model);
     entries.insert("llm.claude_model".to_string(), claude_model);
+    entries.insert("llm.codex_model".to_string(), codex_model);
     entries.insert("capture.device".to_string(), device.to_string());
     entries.insert("capture.interval_sec".to_string(), interval_sec.to_string());
     entries.insert("capture.audio_device".to_string(), audio_device);

@@ -33,7 +33,7 @@ function createMockRuntime(): Runtime {
       status: vi.fn(),
       search: vi.fn(),
       rag: { ask: vi.fn() },
-      settings: { get: vi.fn(), put: vi.fn() },
+      settings: { get: vi.fn(), put: vi.fn(), validateProvider: vi.fn() },
       devices: { get: vi.fn() },
       data: { stats: vi.fn(), exportTable: vi.fn() },
     },

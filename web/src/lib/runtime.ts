@@ -12,6 +12,8 @@ import type {
   SearchResults,
   Session,
   Summary,
+  ProviderValidationRequest,
+  ProviderValidationResult,
 } from './types';
 
 export interface RuntimeApi {
@@ -46,7 +48,11 @@ export interface RuntimeApi {
       sources: { type: string; timestamp: string; preview: string; distance: number }[];
     }>;
   };
-  settings: { get: () => Promise<unknown>; put: (body: unknown) => Promise<unknown> };
+  settings: {
+    get: () => Promise<unknown>;
+    put: (body: unknown) => Promise<unknown>;
+    validateProvider: (body: ProviderValidationRequest) => Promise<ProviderValidationResult>;
+  };
   devices: { get: () => Promise<unknown> };
   data: { stats: () => Promise<unknown>; exportTable: (table: string, format?: string) => Promise<string> };
 }

@@ -110,8 +110,17 @@
     "llm": {
       "title": "LLM",
       "provider": "プロバイダー",
+      "recommendedHint": "推奨は Claude Code または Codex CLI によるローカル分析です。Gemini API キーも引き続き利用できます。",
       "geminiModel": "Gemini モデル",
-      "claudeModel": "Claude モデル"
+      "claudeModel": "Claude モデル",
+      "codexModel": "Codex モデル",
+      "externalHint": "External モードは高度な連携向けです。vida 自身ではローカル分析を行わず、別プロセスの WebSocket クライアントからフレーム分析とサマリーが返るのを待ちます。",
+      "providers": {
+        "gemini": "Gemini API",
+        "claude": "Claude Code CLI",
+        "codex": "Codex CLI",
+        "external": "External WebSocket"
+      }
     },
     "capture": {
       "title": "キャプチャ",
@@ -153,8 +162,14 @@
   },
   "onboarding": {
     "welcome": {
+      "languageLabel": "言語",
       "title": "vida へようこそ",
-      "description": "日常生活のモニタリング、管理、分析のためのパーソナルAIシステム"
+      "description": "日常生活のモニタリング、管理、分析のためのパーソナルAIシステム",
+      "pillars": {
+        "monitoring": "モニタリング",
+        "management": "管理",
+        "analysis": "分析"
+      }
     },
     "profile": {
       "title": "あなたのことを教えてください",
@@ -163,8 +178,25 @@
     },
     "setup": {
       "title": "クイックセットアップ",
-      "description": "AI分析を有効にするにはLLMプロバイダーとAPIキーを設定してください",
-      "openSettings": "設定を開く"
+      "description": "推奨は Claude Code または Codex CLI でのローカル分析です。必要なら Gemini API キーでも利用できます。",
+      "providerLabel": "プロバイダー",
+      "geminiApiKeyLabel": "Gemini API キー",
+      "geminiApiKeyHint": "Gemini を使う場合は API キーが必要です。",
+      "geminiApiKeyHintExisting": "保存済みの Gemini API キーがあります。再利用する場合は空欄のままで構いません。",
+      "existingKeyPlaceholder": "保存済みキーを利用",
+      "openSettings": "詳細設定を開く",
+      "status": {
+        "checking": "{{provider}} を確認中...",
+        "ready": "{{provider}} の動作を確認しました。",
+        "external": "External モードは利用可能です。オンボーディング後に WebSocket クライアントを接続してください。",
+        "missingApiKey": "Gemini API キーを入力してください。",
+        "missingBinary": "{{provider}} がこのマシンに見つかりません。",
+        "binaryFoundButFailed": "{{provider}} は見つかりましたが、動作確認に失敗しました。レートリミット、未ログイン、一時的なエラーの可能性があります。",
+        "pythonNotFound": "まだ Python が利用できません。先に `uv sync` を実行してください。",
+        "checkerNotFound": "プロバイダー検証ヘルパーが見つかりません。",
+        "invalidProvider": "未対応のプロバイダーです。",
+        "requestFailed": "{{provider}} の動作確認に失敗しました。"
+      }
     },
     "start": {
       "title": "準備完了！",

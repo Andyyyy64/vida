@@ -110,8 +110,17 @@
     "llm": {
       "title": "LLM",
       "provider": "Provider",
+      "recommendedHint": "Recommended: Claude Code or Codex CLI for local analysis. Gemini API keys remain available.",
       "geminiModel": "Gemini model",
-      "claudeModel": "Claude model"
+      "claudeModel": "Claude model",
+      "codexModel": "Codex model",
+      "externalHint": "External mode is for advanced integrations. vida will not analyze frames locally and instead waits for a separate WebSocket client to send frame analysis and summaries.",
+      "providers": {
+        "gemini": "Gemini API",
+        "claude": "Claude Code CLI",
+        "codex": "Codex CLI",
+        "external": "External WebSocket"
+      }
     },
     "capture": {
       "title": "Capture",
@@ -153,8 +162,14 @@
   },
   "onboarding": {
     "welcome": {
+      "languageLabel": "Language",
       "title": "Welcome to vida",
-      "description": "Your personal AI system for monitoring, managing, and analyzing your daily life."
+      "description": "Your personal AI system for monitoring, managing, and analyzing your daily life.",
+      "pillars": {
+        "monitoring": "Monitoring",
+        "management": "Management",
+        "analysis": "Analysis"
+      }
     },
     "profile": {
       "title": "Tell us about yourself",
@@ -163,8 +178,25 @@
     },
     "setup": {
       "title": "Quick Setup",
-      "description": "Configure your LLM provider and API key to enable AI analysis.",
-      "openSettings": "Open Settings"
+      "description": "Recommended: sign in to Claude Code or Codex CLI for local analysis. Gemini API keys are still supported if you prefer hosted models.",
+      "providerLabel": "Provider",
+      "geminiApiKeyLabel": "Gemini API key",
+      "geminiApiKeyHint": "A Gemini API key is required for Gemini provider validation.",
+      "geminiApiKeyHintExisting": "A saved Gemini API key already exists. Leave this blank to reuse it.",
+      "existingKeyPlaceholder": "Using saved key",
+      "openSettings": "Advanced Settings",
+      "status": {
+        "checking": "Checking {{provider}}...",
+        "ready": "{{provider}} responded successfully.",
+        "external": "External mode is ready. Connect a WebSocket client after onboarding.",
+        "missingApiKey": "Enter a Gemini API key to continue.",
+        "missingBinary": "{{provider}} is not installed on this machine.",
+        "binaryFoundButFailed": "{{provider}} was found, but the validation request failed. Rate limits, login state, or a temporary error may be the cause.",
+        "pythonNotFound": "Python is not available yet. Run `uv sync` first.",
+        "checkerNotFound": "The provider validation helper is missing.",
+        "invalidProvider": "This provider is not supported.",
+        "requestFailed": "{{provider}} did not complete the validation check."
+      }
     },
     "start": {
       "title": "You're all set!",

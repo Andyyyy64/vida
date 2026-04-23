@@ -9,6 +9,7 @@ pub mod export;
 pub mod frames;
 pub mod live;
 pub mod memos;
+pub mod provider_check;
 pub mod rag;
 pub mod reports;
 pub mod search;

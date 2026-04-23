@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { getRuntime } from '../lib/runtime';
 
 interface SettingsData {
-  llm: { provider: string; gemini_model: string; claude_model: string };
+  llm: { provider: string; gemini_model: string; claude_model: string; codex_model: string };
   capture: { device: number; interval_sec: number; audio_device: string };
   presence: { enabled: boolean; sleep_start_hour: number; sleep_end_hour: number };
   chat: {
@@ -25,9 +25,10 @@ interface Props { onClose: () => void }
 
 const DEFAULT_SETTINGS_DATA: SettingsData = {
   llm: {
-    provider: 'gemini',
+    provider: 'claude',
     gemini_model: 'gemini-3.1-flash-lite-preview',
     claude_model: 'haiku',
+    codex_model: 'gpt-5.4',
   },
   capture: {
     device: 0,
@@ -55,6 +56,7 @@ function normalizeSettingsData(input: Partial<SettingsData> | null | undefined):
       provider: input?.llm?.provider ?? DEFAULT_SETTINGS_DATA.llm.provider,
       gemini_model: input?.llm?.gemini_model ?? DEFAULT_SETTINGS_DATA.llm.gemini_model,
       claude_model: input?.llm?.claude_model ?? DEFAULT_SETTINGS_DATA.llm.claude_model,
+      codex_model: input?.llm?.codex_model ?? DEFAULT_SETTINGS_DATA.llm.codex_model,
     },
     capture: {
       device: input?.capture?.device ?? DEFAULT_SETTINGS_DATA.capture.device,
@@ -143,6 +145,7 @@ export function Settings({ onClose }: Props) {
       const env: Record<string, string> = {};
       for (const [k, v] of Object.entries(envInputs)) env[k] = v;
       await api.settings.put({ ...data, env });
+      window.dispatchEvent(new CustomEvent('vida:settings-updated'));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       setEnvInputs((prev) => Object.fromEntries(Object.keys(prev).map((k) => [k, ''])));
@@ -168,6 +171,7 @@ export function Settings({ onClose }: Props) {
 
   const cams = devices?.cameras ?? [];
   const mics = devices?.audio ?? [];
+  const llmProvider = data?.llm.provider ?? DEFAULT_SETTINGS_DATA.llm.provider;
 
   const toggleLang = () => {
     i18n.changeLanguage(i18n.language === 'ja' ? 'en' : 'ja');
@@ -225,6 +229,20 @@ export function Settings({ onClose }: Props) {
             {/* ── LLM ── */}
             <section className="settings-section">
               <h3 className="settings-section-title">{t('settings.llm.title')}</h3>
+              <p className="settings-hint-block">{t('settings.llm.recommendedHint')}</p>
+              <div className="settings-field">
+                <label>{t('settings.llm.provider')}</label>
+                <select
+                  value={data.llm.provider}
+                  onChange={(e) => setLlm('provider', e.target.value)}
+                >
+                  <option value="claude">{t('settings.llm.providers.claude')}</option>
+                  <option value="codex">{t('settings.llm.providers.codex')}</option>
+                  <option value="gemini">{t('settings.llm.providers.gemini')}</option>
+                  <option value="external">{t('settings.llm.providers.external')}</option>
+                </select>
+              </div>
+              {llmProvider === 'gemini' && (
               <div className="settings-field">
                 <label>{t('settings.llm.geminiModel')}</label>
                 <input
@@ -233,6 +251,30 @@ export function Settings({ onClose }: Props) {
                   placeholder="gemini-3.1-flash-lite-preview"
                 />
               </div>
+              )}
+              {llmProvider === 'claude' && (
+              <div className="settings-field">
+                <label>{t('settings.llm.claudeModel')}</label>
+                <input
+                  value={data.llm.claude_model}
+                  onChange={(e) => setLlm('claude_model', e.target.value)}
+                  placeholder="haiku"
+                />
+              </div>
+              )}
+              {llmProvider === 'codex' && (
+              <div className="settings-field">
+                <label>{t('settings.llm.codexModel')}</label>
+                <input
+                  value={data.llm.codex_model}
+                  onChange={(e) => setLlm('codex_model', e.target.value)}
+                  placeholder="gpt-5.4"
+                />
+              </div>
+              )}
+              {llmProvider === 'external' && (
+                <p className="settings-hint-block">{t('settings.llm.externalHint')}</p>
+              )}
             </section>
 
             {/* ── Capture ── */}
