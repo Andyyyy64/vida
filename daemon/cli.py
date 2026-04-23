@@ -246,13 +246,14 @@ def look(ctx):
 
     if config.llm.provider == "external":
         console.print(
-            "[yellow]'look' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]"
+            "[yellow]'look' requires a local LLM provider. Set llm.provider to 'claude', 'codex', or 'gemini'.[/yellow]"
         )
         return
 
     provider = create_provider(
         config.llm.provider,
         claude_model=config.llm.claude_model,
+        codex_model=config.llm.codex_model,
         gemini_model=config.llm.gemini_model,
     )
     db = Database(config.db_path)
@@ -445,13 +446,14 @@ def report(ctx, target_date: str | None):
 
     if config.llm.provider == "external":
         console.print(
-            "[yellow]'report' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]"
+            "[yellow]'report' requires a local LLM provider. Set llm.provider to 'claude', 'codex', or 'gemini'.[/yellow]"
         )
         return
 
     provider = create_provider(
         config.llm.provider,
         claude_model=config.llm.claude_model,
+        codex_model=config.llm.codex_model,
         gemini_model=config.llm.gemini_model,
     )
     db = Database(config.db_path)
@@ -548,7 +550,7 @@ def knowledge(ctx, regen: bool):
     if regen:
         if config.llm.provider == "external":
             console.print(
-                "[yellow]'knowledge --regen' requires a local LLM provider. Set llm.provider to 'claude' or 'gemini'.[/yellow]"
+                "[yellow]'knowledge --regen' requires a local LLM provider. Set llm.provider to 'claude', 'codex', or 'gemini'.[/yellow]"
             )
             db.close()
             return
@@ -559,6 +561,7 @@ def knowledge(ctx, regen: bool):
         provider = create_provider(
             config.llm.provider,
             claude_model=config.llm.claude_model,
+            codex_model=config.llm.codex_model,
             gemini_model=config.llm.gemini_model,
         )
         gen = KnowledgeGenerator(provider, db, config.data_dir)
@@ -628,6 +631,7 @@ def consolidate_activities(ctx, dry_run: bool):
     provider = create_provider(
         config.llm.provider,
         claude_model=config.llm.claude_model,
+        codex_model=config.llm.codex_model,
         gemini_model=config.llm.gemini_model,
     )
     raw = provider.generate_text(prompt) or ""

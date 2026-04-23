@@ -32,6 +32,7 @@ class AnalysisConfig:
 class LLMConfig:
     provider: str = "claude"
     claude_model: str = "haiku"
+    codex_model: str = "gpt-5.4"
     gemini_model: str = "gemini-3.1-flash-lite-preview"
 
 
@@ -191,6 +192,8 @@ class Config:
             cfg.llm.gemini_model = v
         if v := s.get("llm.claude_model"):
             cfg.llm.claude_model = v
+        if v := s.get("llm.codex_model"):
+            cfg.llm.codex_model = v
         # Capture
         if v := s.get("capture.device"):
             cfg.capture.device = int(v)

@@ -40,6 +40,7 @@ class TestDefaultConfig:
         cfg = Config.load(tmp_path / "nonexistent.toml")
         assert cfg.llm.provider == "claude"
         assert cfg.llm.claude_model == "haiku"
+        assert cfg.llm.codex_model == "gpt-5.4"
 
     def test_default_presence(self, tmp_path):
         cfg = Config.load(tmp_path / "nonexistent.toml")
@@ -114,12 +115,14 @@ class TestLoadFromToml:
             "[llm]\n"
             'provider = "gemini"\n'
             'claude_model = "sonnet"\n'
+            'codex_model = "gpt-5.4-mini"\n'
             'gemini_model = "gemini-pro"\n'
         )
 
         cfg = Config.load(toml_path)
         assert cfg.llm.provider == "gemini"
         assert cfg.llm.claude_model == "sonnet"
+        assert cfg.llm.codex_model == "gpt-5.4-mini"
         assert cfg.llm.gemini_model == "gemini-pro"
 
     def test_loads_presence_config(self, tmp_path):

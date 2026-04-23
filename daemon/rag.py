@@ -76,6 +76,7 @@ class RagEngine:
         self._provider = create_provider(
             config.llm.provider,
             claude_model=config.llm.claude_model,
+            codex_model=config.llm.codex_model,
             gemini_model=config.llm.gemini_model,
         )
 

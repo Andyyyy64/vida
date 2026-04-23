@@ -41,7 +41,7 @@ daemon (Python)          tauri (Rust)              frontend (React)
 - Window monitor runs a persistent PowerShell process with its own SQLite connection
 - Shared `data/` directory: frames/, screens/, audio/, life.db
 - Settings stored in SQLite `settings` table (not files)
-- LLM provider: Gemini, Claude, or "external" (Claude Code via WebSocket) — configured in DB settings
+- LLM provider: Gemini, Claude, Codex, or "external" (Claude Code / custom client via WebSocket) — configured in DB settings
 - Multimodal embedding via Gemini Embedding 2 (camera, screen, audio, text → unified vector space)
 - sqlite-vec for vector storage and KNN cosine similarity search
 
